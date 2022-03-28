@@ -788,7 +788,7 @@ by rebooting the guest via `vagrant halt; vagrant up`.
 
 The `vagrant up` command basically does the following:
 
-- Downloads a Debian image and starts it using a Vagrant provider.
+- Downloads a Debian image and start it using a Vagrant provider.
 - Uses `vagrant ssh` to connect to that Debian guest, and then runs
   `tools/provision`, which has a lot of subcommands that are
   executed via Python's `subprocess` module. These errors mean that

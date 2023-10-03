@@ -52,14 +52,14 @@ def get_bot_types(user_profile: Optional[UserProfile]) -> List[Dict[str, object]
     if user_profile is None:
         return bot_types
 
-    for type_id, name in UserProfile.BOT_TYPES.items():
-        bot_types.append(
-            dict(
-                type_id=type_id,
-                name=name,
-                allowed=type_id in user_profile.allowed_bot_types,
-            )
+    bot_types.extend(
+        dict(
+            type_id=type_id,
+            name=name,
+            allowed=type_id in user_profile.allowed_bot_types,
         )
+        for type_id, name in UserProfile.BOT_TYPES.items()
+    )
     return bot_types
 
 

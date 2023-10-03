@@ -47,18 +47,16 @@ def create_var_directories() -> None:
 
 
 def build_pygments_data_paths() -> List[str]:
-    paths = [
+    return [
         "tools/setup/build_pygments_data",
         "tools/setup/lang.json",
     ]
-    return paths
 
 
 def build_timezones_data_paths() -> List[str]:
-    paths = [
+    return [
         "tools/setup/build_timezone_values",
     ]
-    return paths
 
 
 def compilemessages_paths() -> List[str]:
@@ -78,10 +76,9 @@ def inline_email_css_paths() -> List[str]:
 
 
 def configure_rabbitmq_paths() -> List[str]:
-    paths = [
+    return [
         "scripts/setup/configure-rabbitmq",
     ]
-    return paths
 
 
 def setup_shell_profile(shell_profile: str) -> None:
@@ -187,13 +184,11 @@ def need_to_run_inline_email_css() -> bool:
 
 
 def need_to_run_configure_rabbitmq(settings_list: List[str]) -> bool:
-    obsolete = is_digest_obsolete(
+    if obsolete := is_digest_obsolete(
         "last_configure_rabbitmq_hash",
         configure_rabbitmq_paths(),
         settings_list,
-    )
-
-    if obsolete:
+    ):
         return True
 
     try:
@@ -282,15 +277,7 @@ def main(options: argparse.Namespace) -> int:
         dev_template_db_status = DEV_DATABASE.template_status()
         if options.is_force or dev_template_db_status == "needs_rebuild":
             run(["tools/setup/postgresql-init-dev-db"])
-            if options.skip_dev_db_build:
-                # We don't need to build the manual development
-                # database on continuous integration for running tests, so we can
-                # just leave it as a template db and save a minute.
-                #
-                # Important: We don't write a digest as that would
-                # incorrectly claim that we ran migrations.
-                pass
-            else:
+            if not options.skip_dev_db_build:
                 run(["tools/rebuild-dev-database"])
                 DEV_DATABASE.write_new_db_digest()
         elif dev_template_db_status == "run_migrations":
@@ -317,8 +304,7 @@ def main(options: argparse.Namespace) -> int:
         else:
             print("No need to run `manage.py compilemessages`.")
 
-        destroyed = destroy_leaked_test_databases()
-        if destroyed:
+        if destroyed := destroy_leaked_test_databases():
             print(f"Dropped {destroyed} stale test databases!")
 
     clean_unused_caches.main(
@@ -360,7 +346,7 @@ def main(options: argparse.Namespace) -> int:
         f.write(PROVISION_VERSION + "\n")
 
     print()
-    print(OKBLUE + "Zulip development environment setup succeeded!" + ENDC)
+    print(f"{OKBLUE}Zulip development environment setup succeeded!{ENDC}")
     return 0
 
 

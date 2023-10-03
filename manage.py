@@ -34,7 +34,7 @@ def get_filtered_commands() -> Dict[str, str]:
     development-focused management commands in production.
     """
     all_commands = get_commands()
-    documented_commands = dict()
+    documented_commands = {}
     documented_apps = [
         # "auth" removed because its commands are not applicable to Zulip.
         # "contenttypes" removed because we don't use that subsystem, and
@@ -93,17 +93,12 @@ class FilteredManagementUtility(ManagementUtility):
             ]
             commands_dict = defaultdict(lambda: [])
             for name, app in get_filtered_commands().items():
-                if app == "django.core":
-                    app = "django"
-                else:
-                    app = app.rpartition(".")[-1]
+                app = "django" if app == "django.core" else app.rpartition(".")[-1]
                 commands_dict[app].append(name)
             style = color_style()
             for app in sorted(commands_dict):
-                usage.append("")
-                usage.append(style.NOTICE(f"[{app}]"))
-                for name in sorted(commands_dict[app]):
-                    usage.append(f"    {name}")
+                usage.extend(("", style.NOTICE(f"[{app}]")))
+                usage.extend(f"    {name}" for name in sorted(commands_dict[app]))
             # Output an extra note if settings are not properly configured
             if self.settings_exception is not None:
                 usage.append(

@@ -92,7 +92,7 @@ def get_or_create_key_prefix() -> str:
     filename = os.path.join(settings.DEPLOY_ROOT, "var", "remote_cache_prefix")
     try:
         with open(filename, "x") as f:
-            prefix = secrets.token_hex(16) + ":"
+            prefix = f"{secrets.token_hex(16)}:"
             f.write(prefix + "\n")
     except FileExistsError:
         tries = 1
@@ -117,16 +117,14 @@ KEY_PREFIX: str = get_or_create_key_prefix()
 
 def bounce_key_prefix_for_testing(test_name: str) -> None:
     global KEY_PREFIX
-    KEY_PREFIX = test_name + ":" + str(os.getpid()) + ":"
+    KEY_PREFIX = f"{test_name}:{os.getpid()}:"
     # We are taking the hash of the KEY_PREFIX to decrease the size of the key.
     # Memcached keys should have a length of less than 250.
-    KEY_PREFIX = hashlib.sha1(KEY_PREFIX.encode()).hexdigest() + ":"
+    KEY_PREFIX = f"{hashlib.sha1(KEY_PREFIX.encode()).hexdigest()}:"
 
 
 def get_cache_backend(cache_name: Optional[str]) -> BaseCache:
-    if cache_name is None:
-        return djcache
-    return caches[cache_name]
+    return djcache if cache_name is None else caches[cache_name]
 
 
 def get_cache_with_key(
@@ -237,7 +235,7 @@ def validate_cache_key(key: str) -> None:
     # The regex checks "all characters between ! and ~ in the ascii table",
     # which happens to be the set of all "nice" ascii characters.
     if not bool(re.fullmatch(r"([!-~])+", key)):
-        raise InvalidCacheKeyException("Invalid characters in the cache key: " + key)
+        raise InvalidCacheKeyException(f"Invalid characters in the cache key: {key}")
     if len(key) > MEMCACHED_MAX_KEY_LENGTH:
         raise InvalidCacheKeyException(f"Cache key too long: {key} Length: {len(key)}")
 
@@ -402,34 +400,30 @@ def generic_bulk_cached_fetch(
         # Nothing to fetch.
         return {}
 
-    cache_keys: Dict[ObjKT, str] = {}
-    for object_id in object_ids:
-        cache_keys[object_id] = cache_key_function(object_id)
-
+    cache_keys: Dict[ObjKT, str] = {
+        object_id: cache_key_function(object_id) for object_id in object_ids
+    }
     cached_objects_compressed: Dict[str, Tuple[CompressedItemT]] = safe_cache_get_many(
         [cache_keys[object_id] for object_id in object_ids],
     )
 
-    cached_objects: Dict[str, CacheItemT] = {}
-    for (key, val) in cached_objects_compressed.items():
-        cached_objects[key] = extractor(cached_objects_compressed[key][0])
+    cached_objects: Dict[str, CacheItemT] = {
+        key: extractor(cached_objects_compressed[key][0])
+        for key in cached_objects_compressed
+    }
     needed_ids = [
         object_id for object_id in object_ids if cache_keys[object_id] not in cached_objects
     ]
 
     # Only call query_function if there are some ids to fetch from the database:
-    if len(needed_ids) > 0:
-        db_objects = query_function(needed_ids)
-    else:
-        db_objects = []
-
+    db_objects = query_function(needed_ids) if needed_ids else []
     items_for_remote_cache: Dict[str, Tuple[CompressedItemT]] = {}
     for obj in db_objects:
         key = cache_keys[id_fetcher(obj)]
         item = cache_transformer(obj)
         items_for_remote_cache[key] = (setter(item),)
         cached_objects[key] = item
-    if len(items_for_remote_cache) > 0:
+    if items_for_remote_cache:
         safe_cache_set_many(items_for_remote_cache)
     return {
         object_id: cached_objects[cache_keys[object_id]]
@@ -484,7 +478,7 @@ def display_recipient_cache_key(recipient_id: int) -> str:
 def display_recipient_bulk_get_users_by_id_cache_key(user_id: int) -> str:
     # Cache key function for a function for bulk fetching users, used internally
     # by display_recipient code.
-    return "bulk_fetch_display_recipients:" + user_profile_by_id_cache_key(user_id)
+    return f"bulk_fetch_display_recipients:{user_profile_by_id_cache_key(user_id)}"
 
 
 def user_profile_cache_key_id(email: str, realm_id: int) -> str:
@@ -584,11 +578,17 @@ def delete_user_profile_caches(user_profiles: Iterable["UserProfile"]) -> None:
     keys = []
     for user_profile in user_profiles:
         keys.append(user_profile_by_id_cache_key(user_profile.id))
-        for api_key in get_all_api_keys(user_profile):
-            keys.append(user_profile_by_api_key_cache_key(api_key))
-        keys.append(user_profile_cache_key(user_profile.email, user_profile.realm))
-        keys.append(
-            user_profile_delivery_email_cache_key(user_profile.delivery_email, user_profile.realm)
+        keys.extend(
+            user_profile_by_api_key_cache_key(api_key)
+            for api_key in get_all_api_keys(user_profile)
+        )
+        keys.extend(
+            (
+                user_profile_cache_key(user_profile.email, user_profile.realm),
+                user_profile_delivery_email_cache_key(
+                    user_profile.delivery_email, user_profile.realm
+                ),
+            )
         )
         if user_profile.is_bot and is_cross_realm_bot_email(user_profile.email):
             # Handle clearing system bots from their special cache.
@@ -751,7 +751,7 @@ def to_dict_cache_key(message: "Message", realm_id: Optional[int] = None) -> str
 
 
 def open_graph_description_cache_key(content: bytes, request: HttpRequest) -> str:
-    return "open_graph_description_path:{}".format(make_safe_digest(request.META["PATH_INFO"]))
+    return f'open_graph_description_path:{make_safe_digest(request.META["PATH_INFO"])}'
 
 
 def flush_message(*, instance: "Message", **kwargs: object) -> None:
@@ -822,9 +822,7 @@ def dict_to_items_tuple(user_function: Callable[..., Any]) -> Callable[..., Any]
     """Wrapper that converts any dict args to dict item tuples."""
 
     def dict_to_tuple(arg: Any) -> Any:
-        if isinstance(arg, dict):
-            return tuple(sorted(arg.items()))
-        return arg
+        return tuple(sorted(arg.items())) if isinstance(arg, dict) else arg
 
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         new_args = (dict_to_tuple(arg) for arg in args)

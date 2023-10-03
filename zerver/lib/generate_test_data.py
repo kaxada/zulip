@@ -19,14 +19,14 @@ def load_config() -> Dict[str, Any]:
 def generate_topics(num_topics: int) -> List[str]:
     config = load_config()["gen_fodder"]
 
-    topics = []
     # Make single word topics account for 30% of total topics.
     # Single word topics are most common, thus
     # it is important we test on it.
     num_single_word_topics = num_topics // 3
-    for _ in itertools.repeat(None, num_single_word_topics):
-        topics.append(random.choice(config["nouns"]))
-
+    topics = [
+        random.choice(config["nouns"])
+        for _ in itertools.repeat(None, num_single_word_topics)
+    ]
     sentence = ["adjectives", "nouns", "connectors", "verbs", "adverbs"]
     for pos in sentence:
         # Add an empty string so that we can generate variable length topics.
@@ -41,11 +41,7 @@ def generate_topics(num_topics: int) -> List[str]:
     # many topics in a few streams. Note that these don't have the
     # "Marked as resolved" messages, so don't match the normal user
     # experience perfectly.
-    if random.random() < 0.15:
-        resolved_topic_probability = 0.5
-    else:
-        resolved_topic_probability = 0.05
-
+    resolved_topic_probability = 0.5 if random.random() < 0.15 else 0.05
     final_topics = []
     for topic in topics:
         if random.random() < resolved_topic_probability:
@@ -58,10 +54,9 @@ def generate_topics(num_topics: int) -> List[str]:
 
 def load_generators(config: Dict[str, Any]) -> Dict[str, Any]:
 
-    results = {}
     cfg = config["gen_fodder"]
 
-    results["nouns"] = itertools.cycle(cfg["nouns"])
+    results = {"nouns": itertools.cycle(cfg["nouns"])}
     results["adjectives"] = itertools.cycle(cfg["adjectives"])
     results["connectors"] = itertools.cycle(cfg["connectors"])
     results["verbs"] = itertools.cycle(cfg["verbs"])
@@ -121,28 +116,12 @@ def add_flair(paragraphs: List[str], gens: Dict[str, Any]) -> List[str]:
         key = flair[i]
         if key == "None":
             txt = paragraphs[i]
-        elif key == "italic":
-            txt = add_md("*", paragraphs[i])
         elif key == "bold":
             txt = add_md("**", paragraphs[i])
-        elif key == "strike-thru":
-            txt = add_md("~~", paragraphs[i])
-        elif key == "quoted":
-            txt = ">" + paragraphs[i]
-        elif key == "quote-block":
-            txt = paragraphs[i] + "\n" + next(gens["quote-blocks"])
-        elif key == "inline-code":
-            txt = paragraphs[i] + "\n" + next(gens["inline-code"])
         elif key == "code-block":
             txt = paragraphs[i] + "\n" + next(gens["code-blocks"])
-        elif key == "math":
-            txt = paragraphs[i] + "\n" + next(gens["maths"])
-        elif key == "list":
-            txt = paragraphs[i] + "\n" + next(gens["lists"])
         elif key == "emoji":
             txt = add_emoji(paragraphs[i], next(gens["emojis"]))
-        elif key == "link":
-            txt = add_link(paragraphs[i], next(gens["links"]))
         elif key == "images":
             # Ideally, this would actually be a 2-step process that
             # first hits the `upload` endpoint and then adds that URL;
@@ -152,6 +131,22 @@ def add_flair(paragraphs: List[str], gens: Dict[str, Any]) -> List[str]:
             # even when developing offline).
             txt = paragraphs[i] + "\n" + next(gens["images"])
 
+        elif key == "inline-code":
+            txt = paragraphs[i] + "\n" + next(gens["inline-code"])
+        elif key == "italic":
+            txt = add_md("*", paragraphs[i])
+        elif key == "link":
+            txt = add_link(paragraphs[i], next(gens["links"]))
+        elif key == "list":
+            txt = paragraphs[i] + "\n" + next(gens["lists"])
+        elif key == "math":
+            txt = paragraphs[i] + "\n" + next(gens["maths"])
+        elif key == "quote-block":
+            txt = paragraphs[i] + "\n" + next(gens["quote-blocks"])
+        elif key == "quoted":
+            txt = f">{paragraphs[i]}"
+        elif key == "strike-thru":
+            txt = add_md("~~", paragraphs[i])
         results.append(txt)
 
     return results
@@ -178,7 +173,7 @@ def add_emoji(text: str, emoji: str) -> str:
     vals = text.split()
     start = random.randrange(len(vals))
 
-    vals[start] = vals[start] + " " + emoji + " "
+    vals[start] = f"{vals[start]} {emoji} "
     return " ".join(vals)
 
 
@@ -187,7 +182,7 @@ def add_link(text: str, link: str) -> str:
     vals = text.split()
     start = random.randrange(len(vals))
 
-    vals[start] = vals[start] + " " + link + " "
+    vals[start] = f"{vals[start]} {link} "
 
     return " ".join(vals)
 

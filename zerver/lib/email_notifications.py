@@ -59,7 +59,7 @@ def relative_to_full_url(fragment: lxml.html.HtmlElement, base_url: str) -> None
         elem, attrib, link, pos = link_info
         match = re.match("/?#narrow/", link)
         if match is not None:
-            link = re.sub(r"^/?#narrow/", base_url + "/#narrow/", link)
+            link = re.sub(r"^/?#narrow/", f"{base_url}/#narrow/", link)
             elem.set(attrib, link)
             # Only manually linked narrow URLs have title attribute set.
             if elem.get("title") is not None:
@@ -105,7 +105,7 @@ def fix_emojis(fragment: lxml.html.HtmlElement, base_url: str, emojiset: str) ->
         emoji_code = match.group("emoji_code")
         emoji_name = emoji_span_elem.get("title")
         alt_code = emoji_span_elem.text
-        image_url = base_url + f"/static/generated/emoji/images-{emojiset}-64/{emoji_code}.png"
+        image_url = f"{base_url}/static/generated/emoji/images-{emojiset}-64/{emoji_code}.png"
         img_elem = E.IMG(alt=alt_code, src=image_url, title=emoji_name, style="height: 20px;")
         img_elem.tail = emoji_span_elem.tail
         return img_elem
@@ -149,14 +149,12 @@ def fix_spoilers_in_text(content: str, language: str) -> str:
     output = []
     open_fence = None
     for line in lines:
-        m = FENCE_RE.match(line)
-        if m:
+        if m := FENCE_RE.match(line):
             fence = m.group("fence")
             lang: Optional[str] = m.group("lang")
             if lang == "spoiler":
                 open_fence = fence
-                output.append(line)
-                output.append(f"({spoiler_title})")
+                output.extend((line, f"({spoiler_title})"))
             elif fence == open_fence:
                 open_fence = None
                 output.append(line)
@@ -289,7 +287,7 @@ def build_message_list(
         header = message_header(message)
 
         # If we want to collapse into the previous recipient block
-        if len(messages_to_render) > 0 and messages_to_render[-1]["header"] == header:
+        if messages_to_render and messages_to_render[-1]["header"] == header:
             sender = sender_string(message)
             sender_block = messages_to_render[-1]["senders"]
 
@@ -453,11 +451,7 @@ def do_send_missedmessage_events_reply_in_zulip(
     from zerver.lib.email_mirror import create_missed_message_address
 
     reply_to_address = create_missed_message_address(user_profile, missed_messages[0]["message"])
-    if reply_to_address == FromAddress.NOREPLY:
-        reply_to_name = ""
-    else:
-        reply_to_name = "Zulip"
-
+    reply_to_name = "" if reply_to_address == FromAddress.NOREPLY else "Zulip"
     narrow_url = get_narrow_url(user_profile, missed_messages[0]["message"])
     context.update(
         narrow_url=narrow_url,
@@ -472,17 +466,13 @@ def do_send_missedmessage_events_reply_in_zulip(
         context.update(group_pm=True)
         if len(other_recipients) == 2:
             huddle_display_name = " and ".join(other_recipients)
-            context.update(huddle_display_name=huddle_display_name)
         elif len(other_recipients) == 3:
             huddle_display_name = (
                 f"{other_recipients[0]}, {other_recipients[1]}, and {other_recipients[2]}"
             )
-            context.update(huddle_display_name=huddle_display_name)
         else:
-            huddle_display_name = "{}, and {} others".format(
-                ", ".join(other_recipients[:2]), len(other_recipients) - 2
-            )
-            context.update(huddle_display_name=huddle_display_name)
+            huddle_display_name = f'{", ".join(other_recipients[:2])}, and {len(other_recipients) - 2} others'
+        context.update(huddle_display_name=huddle_display_name)
     elif missed_messages[0]["message"].recipient.type == Recipient.PERSONAL:
         context.update(private_message=True)
     elif context["mention"] or context["stream_email_notify"]:
@@ -492,7 +482,7 @@ def do_send_missedmessage_events_reply_in_zulip(
                 {
                     m["message"].sender
                     for m in missed_messages
-                    if m["trigger"] == "mentioned" or m["trigger"] == "wildcard_mentioned"
+                    if m["trigger"] in ["mentioned", "wildcard_mentioned"]
                 }
             )
         message = missed_messages[0]["message"]
@@ -690,17 +680,18 @@ def enqueue_welcome_emails(user: UserProfile, realm_creation: bool = False) -> N
     context = common_context(user)
     context.update(
         unsubscribe_link=unsubscribe_link,
-        keyboard_shortcuts_link=user.realm.uri + "/help/keyboard-shortcuts",
+        keyboard_shortcuts_link=f"{user.realm.uri}/help/keyboard-shortcuts",
         realm_name=user.realm.name,
         realm_creation=realm_creation,
         email=user.delivery_email,
         is_realm_admin=user.is_realm_admin,
-        is_demo_org=user.realm.demo_organization_scheduled_deletion_date is not None,
+        is_demo_org=user.realm.demo_organization_scheduled_deletion_date
+        is not None,
     )
     if user.is_realm_admin:
-        context["getting_started_link"] = (
-            user.realm.uri + "/help/getting-your-organization-started-with-zulip"
-        )
+        context[
+            "getting_started_link"
+        ] = f"{user.realm.uri}/help/getting-your-organization-started-with-zulip"
     else:
         context["getting_started_link"] = "https://zulip.com"
 

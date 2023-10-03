@@ -242,9 +242,7 @@ def check_delete_message(
 
     if message_type == "stream":
         keys |= {"stream_id", "topic"}
-    elif message_type == "private":
-        pass
-    else:
+    elif message_type != "private":
         raise AssertionError("unexpected message_type")
 
     if is_legacy:
@@ -878,12 +876,12 @@ def check_realm_update(
 
     if prop == "plan_type":
         assert isinstance(value, int)
-        assert "extra_data" in event.keys()
+        assert "extra_data" in event
         return
 
     assert "extra_data" not in event.keys()
 
-    if prop in ["notifications_stream_id", "signup_notifications_stream_id"]:
+    if prop in {"notifications_stream_id", "signup_notifications_stream_id"}:
         assert isinstance(value, int)
         return
 
@@ -1460,7 +1458,7 @@ def check_update_display_settings(
         assert isinstance(setting, setting_type)
 
     if setting_name == "default_language":
-        assert "language_name" in event.keys()
+        assert "language_name" in event
     else:
         assert "language_name" not in event.keys()
 
@@ -1481,7 +1479,7 @@ def check_user_settings_update(
         assert isinstance(value, setting_type)
 
     if setting_name == "default_language":
-        assert "language_name" in event.keys()
+        assert "language_name" in event
     else:
         assert "language_name" not in event.keys()
 

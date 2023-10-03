@@ -51,8 +51,9 @@ def support_request(request: HttpRequest) -> HttpResponse:
                 context=email_context,
             )
 
-            response = render(request, "corporate/support_request_thanks.html", context=context)
-            return response
-
-    response = render(request, "corporate/support_request.html", context=context)
-    return response
+            return render(
+                request,
+                "corporate/support_request_thanks.html",
+                context=context,
+            )
+    return render(request, "corporate/support_request.html", context=context)

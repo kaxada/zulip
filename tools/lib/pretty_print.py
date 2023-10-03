@@ -72,7 +72,7 @@ def adjust_block_indentation(tokens: List[Token], fn: str) -> None:
                     token.indent = start_token.child_indent
                 else:
                     token.indent = ""
-                token.child_indent = token.indent + "    "
+                token.child_indent = f"{token.indent}    "
             token.parent_token = start_token
             start_token = token
             continue
@@ -114,7 +114,7 @@ def fix_indents_for_multi_line_tags(tokens: List[Token]) -> None:
         if token.kind in ("django_comment", "handlebar_comment", "html_comment", "text"):
             continue_indent = token.indent
         else:
-            continue_indent = token.indent + "  "
+            continue_indent = f"{token.indent}  "
 
         frags = token.new_s.split("\n")
 
@@ -151,9 +151,9 @@ def validate_indent_html(fn: str, tokens: List[Token], fix: bool) -> bool:
     with open(fn) as f:
         html = f.read()
     phtml = pretty_print_html(tokens, fn)
-    if not html.split("\n") == phtml.split("\n"):
+    if html.split("\n") != phtml.split("\n"):
         if fix:
-            print(GREEN + f"Automatically fixing indentation for {fn}" + ENDC)
+            print(f"{GREEN}Automatically fixing indentation for {fn}{ENDC}")
             with open(fn, "w") as f:
                 f.write(phtml)
             # Since we successfully fixed the issues, we return True.

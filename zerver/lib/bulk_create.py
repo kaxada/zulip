@@ -79,10 +79,9 @@ def bulk_create_users(
         UserProfile, profiles_to_create, recipients_to_create
     )
 
-    recipients_by_user_id: Dict[int, Recipient] = {}
-    for recipient in recipients_to_create:
-        recipients_by_user_id[recipient.type_id] = recipient
-
+    recipients_by_user_id: Dict[int, Recipient] = {
+        recipient.type_id: recipient for recipient in recipients_to_create
+    }
     subscriptions_to_create: List[Subscription] = []
     for user_profile in profiles_to_create:
         recipient = recipients_by_user_id[user_profile.id]
@@ -164,10 +163,11 @@ def bulk_create_streams(realm: Realm, stream_dict: Dict[str, Dict[str, Any]]) ->
     streams_to_create.sort(key=lambda x: x.name)
     Stream.objects.bulk_create(streams_to_create)
 
-    recipients_to_create: List[Recipient] = []
-    for stream in Stream.objects.filter(realm=realm).values("id", "name"):
-        if stream["name"].lower() not in existing_streams:
-            recipients_to_create.append(Recipient(type_id=stream["id"], type=Recipient.STREAM))
+    recipients_to_create: List[Recipient] = [
+        Recipient(type_id=stream["id"], type=Recipient.STREAM)
+        for stream in Stream.objects.filter(realm=realm).values("id", "name")
+        if stream["name"].lower() not in existing_streams
+    ]
     Recipient.objects.bulk_create(recipients_to_create)
 
     bulk_set_users_or_streams_recipient_fields(Stream, streams_to_create, recipients_to_create)

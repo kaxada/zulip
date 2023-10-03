@@ -332,9 +332,7 @@ def log_exception_to_webhook_logger(err: Exception) -> None:
 
 
 def full_webhook_client_name(raw_client_name: Optional[str] = None) -> Optional[str]:
-    if raw_client_name is None:
-        return None
-    return f"Zulip{raw_client_name}Webhook"
+    return None if raw_client_name is None else f"Zulip{raw_client_name}Webhook"
 
 
 # Use this for webhook views that don't get an email passed in.
@@ -448,8 +446,7 @@ def logged_in_and_active(request: HttpRequest) -> bool:
 
 
 def do_two_factor_login(request: HttpRequest, user_profile: UserProfile) -> None:
-    device = default_device(user_profile)
-    if device:
+    if device := default_device(user_profile):
         django_otp.login(request, device)
 
 
@@ -529,9 +526,7 @@ def zulip_login_required(
         )(add_logging_data(function))
     )
 
-    if function:
-        return actual_decorator(function)
-    return actual_decorator  # nocoverage # We don't use this without a function
+    return actual_decorator(function) if function else actual_decorator
 
 
 def web_public_view(
@@ -625,13 +620,10 @@ def authenticated_uploads_api_view(
         @has_request_variables
         @wraps(view_func)
         def _wrapped_func_arguments(
-            request: HttpRequest, api_key: str = REQ(), *args: object, **kwargs: object
-        ) -> HttpResponse:
+                    request: HttpRequest, api_key: str = REQ(), *args: object, **kwargs: object
+                ) -> HttpResponse:
             user_profile = validate_api_key(request, None, api_key, False)
-            if not skip_rate_limiting:
-                limited_func = rate_limit()(view_func)
-            else:
-                limited_func = view_func
+            limited_func = rate_limit()(view_func) if not skip_rate_limiting else view_func
             return limited_func(request, user_profile, *args, **kwargs)
 
         return _wrapped_func_arguments
@@ -800,7 +792,7 @@ def authenticated_json_view(
 
 
 def is_local_addr(addr: str) -> bool:
-    return addr in ("127.0.0.1", "::1")
+    return addr in {"127.0.0.1", "::1"}
 
 
 # These views are used by the main Django server to notify the Tornado server
@@ -938,7 +930,6 @@ def rate_limit_request_by_ip(request: HttpRequest, domain: str) -> None:
         # We log a warning so that this endpoint being taken out of
         # service doesn't silently remove this functionality.
         rate_limiter_logger.warning("Failed to fetch TOR exit node list: %s", err)
-        pass
     rate_limit_ip(request, ip_addr, domain=domain)
 
 
@@ -1032,16 +1023,7 @@ def zulip_otp_required(
         # not required or possible.
         #
         # TODO: Add a test for 2FA-enabled with web-public views.
-        if not user.is_authenticated:  # nocoverage
-            return True
-
-        # If the user doesn't have 2FA set up, we can't enforce 2FA.
-        if not user_has_device(user):
-            return True
-
-        # User has configured 2FA and is not verified, so the user
-        # fails the test (and we should redirect to the 2FA view).
-        return False
+        return True if not user.is_authenticated else not user_has_device(user)
 
     decorator = django_user_passes_test(
         test, login_url=login_url, redirect_field_name=redirect_field_name

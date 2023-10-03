@@ -285,10 +285,7 @@ def support(
                     current_plan, timezone_now()
                 )
                 if last_ledger_entry is not None:
-                    if new_plan is not None:
-                        realm.current_plan = new_plan
-                    else:
-                        realm.current_plan = current_plan
+                    realm.current_plan = new_plan if new_plan is not None else current_plan
                     realm.current_plan.licenses = last_ledger_entry.licenses
                     realm.current_plan.licenses_used = get_latest_seat_count(realm)
 

@@ -40,9 +40,9 @@ def write_updated_configs() -> None:
         sorted(ports) == expected_ports
     ), f"ports ({sorted(ports)}) must be contiguous, starting with 9800"
 
-    with open("/etc/zulip/nginx_sharding.conf.tmp", "w") as nginx_sharding_conf_f, open(
-        "/etc/zulip/sharding.json.tmp", "w"
-    ) as sharding_json_f:
+    with (open("/etc/zulip/nginx_sharding.conf.tmp", "w") as nginx_sharding_conf_f, open(
+            "/etc/zulip/sharding.json.tmp", "w"
+        ) as sharding_json_f):
 
         if len(ports) == 1:
             nginx_sharding_conf_f.write("set $tornado_server http://tornado;\n")
@@ -56,14 +56,9 @@ def write_updated_configs() -> None:
             text=True,
         ).strip()
         for port in config_file["tornado_sharding"]:
-            shards = config_file["tornado_sharding"][port].strip()
-
-            if shards:
+            if shards := config_file["tornado_sharding"][port].strip():
                 for shard in shards.split(" "):
-                    if "." in shard:
-                        host = shard
-                    else:
-                        host = f"{shard}.{external_host}"
+                    host = shard if "." in shard else f"{shard}.{external_host}"
                     assert host not in shard_map, f"host {host} duplicated"
                     shard_map[host] = int(port)
                     write_realm_nginx_config_line(nginx_sharding_conf_f, host, port)

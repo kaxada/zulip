@@ -125,8 +125,7 @@ def stripe_fixture_path(
 ) -> str:
     # Make the eventual filename a bit shorter, and also we conventionally
     # use test_* for the python test files
-    if decorated_function_name[:5] == "test_":
-        decorated_function_name = decorated_function_name[5:]
+    decorated_function_name = decorated_function_name.removeprefix("test_")
     return f"{STRIPE_FIXTURES_DIR}/{decorated_function_name}--{mocked_function_name[7:]}.{call_count}.json"
 
 
@@ -137,7 +136,7 @@ def fixture_files_for_function(decorated_function: CallableT) -> List[str]:  # n
     return sorted(
         f"{STRIPE_FIXTURES_DIR}/{f}"
         for f in os.listdir(STRIPE_FIXTURES_DIR)
-        if f.startswith(decorated_function_name + "--")
+        if f.startswith(f"{decorated_function_name}--")
     )
 
 
@@ -255,7 +254,7 @@ def normalize_fixture_data(
         ] = f'"{timestamp_field}": 1{i+1:02}%07d'
 
     normalized_values: Dict[str, Dict[str, str]] = {
-        pattern: {} for pattern in pattern_translations.keys()
+        pattern: {} for pattern in pattern_translations
     }
     for fixture_file in fixture_files_for_function(decorated_function):
         with open(fixture_file) as f:
@@ -439,18 +438,16 @@ class StripeTestCase(ZulipTestCase):
         charge_succeeds: Optional[bool] = None,
         card_provider: Optional[str] = None,
     ) -> str:
-        if attaches_to_customer:
-            assert charge_succeeds is not None
-            if charge_succeeds:
-                if card_provider == "visa":
-                    return "4242424242424242"
-                if card_provider == "mastercard":
-                    return "5555555555554444"
-                raise AssertionError("Unreachable code path")
-            else:
-                return "4000000000000341"
-        else:
+        if not attaches_to_customer:
             return "4000000000000002"
+        assert charge_succeeds is not None
+        if not charge_succeeds:
+            return "4000000000000341"
+        if card_provider == "visa":
+            return "4242424242424242"
+        if card_provider == "mastercard":
+            return "5555555555554444"
+        raise AssertionError("Unreachable code path")
 
     def assert_details_of_valid_session_from_event_status_endpoint(
         self, stripe_session_id: str, expected_details: Dict[str, Any]
@@ -519,7 +516,7 @@ class StripeTestCase(ZulipTestCase):
     def send_stripe_webhook_events(self, most_recent_event: stripe.Event) -> None:
         while True:
             events_old_to_new = list(reversed(stripe.Event.list(ending_before=most_recent_event)))
-            if len(events_old_to_new) == 0:
+            if not events_old_to_new:
                 break
             for event in events_old_to_new:
                 self.send_stripe_webhook_event(event)
@@ -985,21 +982,7 @@ class StripeTest(StripeTestCase):
         with patch("corporate.views.billing_page.timezone_now", return_value=self.now):
             response = self.client_get("/billing/")
         self.assert_not_in_success_response(["Pay annually", "Update card"], response)
-        for substring in [
-            "Zulip Cloud Standard",
-            str(123),
-            "You are using",
-            f"{self.seat_count} of {123} licenses",
-            "Licenses are manually managed. You will not be able to add ",
-            "Your plan will renew on",
-            "January 2, 2013",
-            "$9,840.00",  # 9840 = 80 * 123
-            f"Billing email: <strong>{user.delivery_email}</strong>",
-            "Billed by invoice",
-            "You can only increase the number of licenses.",
-            "Number of licenses",
-            "Licenses in next renewal",
-        ]:
+        for substring in ["Zulip Cloud Standard", str(123), "You are using", f"{self.seat_count} of 123 licenses", "Licenses are manually managed. You will not be able to add ", "Your plan will renew on", "January 2, 2013", "$9,840.00", f"Billing email: <strong>{user.delivery_email}</strong>", "Billed by invoice", "You can only increase the number of licenses.", "Number of licenses", "Licenses in next renewal"]:
             self.assert_in_response(substring, response)
 
     @mock_stripe(tested_timestamp_fields=["created"])
@@ -1370,18 +1353,7 @@ class StripeTest(StripeTestCase):
             with patch("corporate.views.billing_page.timezone_now", return_value=self.now):
                 response = self.client_get("/billing/")
             self.assert_not_in_success_response(["Pay annually"], response)
-            for substring in [
-                "Zulip Cloud Standard",
-                "Free Trial",
-                str(self.seat_count),
-                "You are using",
-                f"{self.seat_count} of {123} licenses",
-                "Your plan will be upgraded to",
-                "March 2, 2012",
-                f"{80 * 123:,.2f}",
-                f"Billing email: <strong>{user.delivery_email}</strong>",
-                "Billed by invoice",
-            ]:
+            for substring in ["Zulip Cloud Standard", "Free Trial", str(self.seat_count), "You are using", f"{self.seat_count} of 123 licenses", "Your plan will be upgraded to", "March 2, 2012", f"{80 * 123:,.2f}", f"Billing email: <strong>{user.delivery_email}</strong>", "Billed by invoice"]:
                 self.assert_in_response(substring, response)
 
             with patch("corporate.lib.stripe.invoice_plan") as mocked:
@@ -3594,12 +3566,12 @@ class StripeTest(StripeTestCase):
     @mock_stripe()
     def test_downgrade_small_realms_behind_on_payments_as_needed(self, *mock: Mock) -> None:
         def create_realm(
-            users_to_create: int,
-            create_stripe_customer: bool,
-            create_plan: bool,
-            num_invoices: Optional[int] = None,
-        ) -> Tuple[Realm, Optional[Customer], Optional[CustomerPlan], List[stripe.Invoice]]:
-            realm_string_id = "realm_" + str(random.randrange(1, 1000000))
+                users_to_create: int,
+                create_stripe_customer: bool,
+                create_plan: bool,
+                num_invoices: Optional[int] = None,
+            ) -> Tuple[Realm, Optional[Customer], Optional[CustomerPlan], List[stripe.Invoice]]:
+            realm_string_id = f"realm_{random.randrange(1, 1000000)}"
             realm = Realm.objects.create(string_id=realm_string_id)
             users = []
             for i in range(users_to_create):

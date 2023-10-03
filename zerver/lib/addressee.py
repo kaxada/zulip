@@ -56,7 +56,7 @@ class Addressee:
         stream_id: Optional[int] = None,
         topic: Optional[str] = None,
     ) -> None:
-        assert msg_type in ["stream", "private"]
+        assert msg_type in {"stream", "private"}
         if msg_type == "stream" and topic is None:
             raise JsonableError(_("Missing topic"))
         self._msg_type = msg_type
@@ -109,30 +109,7 @@ class Addressee:
         if realm is None:
             realm = sender.realm
 
-        if message_type_name == "stream":
-            if len(message_to) > 1:
-                raise JsonableError(_("Cannot send to multiple streams"))
-
-            if message_to:
-                stream_name_or_id = message_to[0]
-            else:
-                # This is a hack to deal with the fact that we still support
-                # default streams (and the None will be converted later in the
-                # call path).
-                if sender.default_sending_stream:
-                    # Use the user's default stream
-                    stream_name_or_id = sender.default_sending_stream.id
-                else:
-                    raise JsonableError(_("Missing stream"))
-
-            if topic_name is None:
-                raise JsonableError(_("Missing topic"))
-
-            if isinstance(stream_name_or_id, int):
-                return Addressee.for_stream_id(stream_name_or_id, topic_name)
-
-            return Addressee.for_stream_name(stream_name_or_id, topic_name)
-        elif message_type_name == "private":
+        if message_type_name == "private":
             if not message_to:
                 raise JsonableError(_("Message must have recipients"))
 
@@ -142,6 +119,27 @@ class Addressee:
             elif isinstance(message_to[0], int):
                 user_ids = cast(Sequence[int], message_to)
                 return Addressee.for_user_ids(user_ids=user_ids, realm=realm)
+        elif message_type_name == "stream":
+            if len(message_to) > 1:
+                raise JsonableError(_("Cannot send to multiple streams"))
+
+            if message_to:
+                stream_name_or_id = message_to[0]
+            elif sender.default_sending_stream:
+                # Use the user's default stream
+                stream_name_or_id = sender.default_sending_stream.id
+            else:
+                raise JsonableError(_("Missing stream"))
+
+            if topic_name is None:
+                raise JsonableError(_("Missing topic"))
+
+            else:
+                return (
+                    Addressee.for_stream_id(stream_name_or_id, topic_name)
+                    if isinstance(stream_name_or_id, int)
+                    else Addressee.for_stream_name(stream_name_or_id, topic_name)
+                )
         else:
             raise JsonableError(_("Invalid message type"))
 

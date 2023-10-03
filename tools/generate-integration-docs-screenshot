@@ -112,8 +112,7 @@ def get_fixture_info(fixture_path: str) -> Tuple[Any, bool, str]:
 
 
 def get_integration(integration_name: str) -> Integration:
-    integration = INTEGRATIONS[integration_name]
-    return integration
+    return INTEGRATIONS[integration_name]
 
 
 def get_requests_headers(integration_name: str, fixture_name: str) -> Dict[str, Any]:
@@ -133,8 +132,7 @@ def custom_headers(headers_json: str) -> Dict[str, str]:
         return orjson.loads(headers_json)
     except orjson.JSONDecodeError as ve:
         raise argparse.ArgumentTypeError(
-            "Encountered an error while attempting to parse custom headers: {}\n"
-            "Note: all strings must be enclosed within \"\" instead of ''".format(ve)
+            f"""Encountered an error while attempting to parse custom headers: {ve}\nNote: all strings must be enclosed within \"\" instead of ''"""
         )
 
 
@@ -159,10 +157,7 @@ def send_bot_mock_message(
         client.send_message(request)
     except KeyError:
         print(
-            "{} contains invalid configuration. "
-            'Fields "subject" and "body" are required for non-webhook integrations.'.format(
-                fixture_path
-            )
+            f'{fixture_path} contains invalid configuration. Fields "subject" and "body" are required for non-webhook integrations.'
         )
         sys.exit(1)
 

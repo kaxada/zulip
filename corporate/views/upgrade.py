@@ -175,7 +175,6 @@ def upgrade(
             billing_modality, schedule, license_management, licenses, seat_count
         )
         assert licenses is not None and license_management is not None
-        automanage_licenses = license_management == "automatic"
         charge_automatically = billing_modality == "charge_automatically"
 
         billing_schedule = {"annual": CustomerPlan.ANNUAL, "monthly": CustomerPlan.MONTHLY}[
@@ -199,6 +198,7 @@ def upgrade(
                 },
             )
         else:
+            automanage_licenses = license_management == "automatic"
             process_initial_upgrade(
                 user,
                 licenses,
@@ -287,8 +287,7 @@ def initial_upgrade(
             key=lambda d: d[1]["display_order"],
         ),
     }
-    response = render(request, "corporate/upgrade.html", context=context)
-    return response
+    return render(request, "corporate/upgrade.html", context=context)
 
 
 class SponsorshipRequestForm(forms.Form):
@@ -362,7 +361,6 @@ def sponsorship(
     else:
         messages = []
         for error_list in form.errors.get_json_data().values():
-            for error in error_list:
-                messages.append(error["message"])
+            messages.extend(error["message"] for error in error_list)
         message = " ".join(messages)
         raise BillingError("Form validation error", message=message)

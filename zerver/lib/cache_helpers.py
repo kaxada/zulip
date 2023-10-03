@@ -131,10 +131,8 @@ def fill_remote_cache(cache: str) -> None:
     remote_cache_requests_start = get_remote_cache_requests()
     items_for_remote_cache: Dict[str, Any] = {}
     (objects, items_filler, timeout, batch_size) = cache_fillers[cache]
-    count = 0
-    for obj in objects():
+    for count, obj in enumerate(objects(), start=1):
         items_filler(items_for_remote_cache, obj)
-        count += 1
         if count % batch_size == 0:
             cache_set_many(items_for_remote_cache, timeout=3600 * 24)
             items_for_remote_cache = {}

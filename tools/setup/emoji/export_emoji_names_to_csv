@@ -65,7 +65,7 @@ def prepare_sorting_info() -> None:
 
 def get_sorting_info(emoji_code: str) -> str:
     category = sorting_info[emoji_code]["category"]
-    category = category_index[category] + "-" + category
+    category = f"{category_index[category]}-{category}"
     sort_order = sorting_info[emoji_code]["sort_order"]
     return " ".join([category, sort_order])
 
@@ -75,9 +75,7 @@ def prepare_explanation(explanation_lines: List[str]) -> str:
 
 
 def prepare_aliases(captured_aliases: str) -> str:
-    aliases = []
-    for alias in captured_aliases.split(", "):
-        aliases.append(alias.strip("'"))
+    aliases = [alias.strip("'") for alias in captured_aliases.split(", ")]
     return ", ".join(aliases)
 
 
@@ -107,7 +105,7 @@ def main() -> None:
     output_data = [column_names]
     explanation_lines: List[str] = []
     with open(args.input_file_path) as fp:
-        for line in fp.readlines():
+        for line in fp:
             match = name_entry_regex.search(line)
             if match is not None:
                 emoji_code = match.group("emoji_code")

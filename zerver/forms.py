@@ -356,10 +356,9 @@ class ZulipPasswordResetForm(PasswordResetForm):
             )
         else:
             context["active_account_in_realm"] = False
-            active_accounts_in_other_realms = UserProfile.objects.filter(
+            if active_accounts_in_other_realms := UserProfile.objects.filter(
                 delivery_email__iexact=email, is_active=True
-            )
-            if active_accounts_in_other_realms:
+            ):
                 context["active_accounts_in_other_realms"] = active_accounts_in_other_realms
             language = request.LANGUAGE_CODE
             send_email(
@@ -489,10 +488,7 @@ class AuthenticationTokenForm(TwoFactorAuthenticationTokenForm):
 class MultiEmailField(forms.Field):
     def to_python(self, emails: str) -> List[str]:
         """Normalize data to a list of strings."""
-        if not emails:
-            return []
-
-        return [email.strip() for email in emails.split(",")]
+        return [] if not emails else [email.strip() for email in emails.split(",")]
 
     def validate(self, emails: List[str]) -> None:
         """Check if value consists only of valid emails."""

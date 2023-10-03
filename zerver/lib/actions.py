@@ -331,10 +331,9 @@ def bot_owner_user_ids(user_profile: UserProfile) -> Set[int]:
     )
     if is_private_bot:
         return {user_profile.bot_owner_id}
-    else:
-        users = {user.id for user in user_profile.realm.get_human_admin_users()}
-        users.add(user_profile.bot_owner_id)
-        return users
+    users = {user.id for user in user_profile.realm.get_human_admin_users()}
+    users.add(user_profile.bot_owner_id)
+    return users
 
 
 def realm_user_count(realm: Realm) -> int:
@@ -440,9 +439,13 @@ def add_new_user_history(user_profile: UserProfile, streams: Iterable[Stream]) -
         recipient_id__in=recipient_ids, date_sent__gt=one_week_ago
     ).order_by("-id")
     message_ids_to_use = list(
-        reversed(recent_messages.values_list("id", flat=True)[0:ONBOARDING_TOTAL_MESSAGES])
+        reversed(
+            recent_messages.values_list("id", flat=True)[
+                :ONBOARDING_TOTAL_MESSAGES
+            ]
+        )
     )
-    if len(message_ids_to_use) == 0:
+    if not message_ids_to_use:
         return
 
     # Handle the race condition where a message arrives between
@@ -493,7 +496,7 @@ def process_new_human_user(
 
     # If the user's invitation didn't explicitly list some streams, we
     # add the default streams
-    if len(streams) == 0:
+    if not streams:
         streams = get_default_subs(user_profile)
 
     for default_stream_group in default_stream_groups:
@@ -604,9 +607,7 @@ def notify_created_user(user_profile: UserProfile) -> None:
 
 def created_bot_event(user_profile: UserProfile) -> Dict[str, Any]:
     def stream_name(stream: Optional[Stream]) -> Optional[str]:
-        if not stream:
-            return None
-        return stream.name
+        return None if not stream else stream.name
 
     default_sending_stream_name = stream_name(user_profile.default_sending_stream)
     default_events_register_stream_name = stream_name(user_profile.default_events_register_stream)
@@ -642,9 +643,7 @@ def notify_created_bot(user_profile: UserProfile) -> None:
 def create_users(
     realm: Realm, name_list: Iterable[Tuple[str, str]], bot_type: Optional[int] = None
 ) -> None:
-    user_set = set()
-    for full_name, email in name_list:
-        user_set.add((email, full_name, True))
+    user_set = {(email, full_name, True) for full_name, email in name_list}
     bulk_create_users(realm, user_set, bot_type)
 
 
@@ -890,8 +889,8 @@ def update_users_in_full_members_system_group(
         realm=realm, name="@role:members", is_system_group=True
     )
 
-    full_member_group_users: List[Dict[str, Union[int, datetime.datetime]]] = list()
-    member_group_users: List[Dict[str, Union[int, datetime.datetime]]] = list()
+    full_member_group_users: List[Dict[str, Union[int, datetime.datetime]]] = []
+    member_group_users: List[Dict[str, Union[int, datetime.datetime]]] = []
 
     if affected_user_ids:
         full_member_group_users = list(
@@ -914,9 +913,7 @@ def update_users_in_full_members_system_group(
 
     def is_provisional_member(user: Dict[str, Union[int, datetime.datetime]]) -> bool:
         diff = (timezone_now() - user["date_joined"]).days
-        if diff < realm.waiting_period_threshold:
-            return True
-        return False
+        return diff < realm.waiting_period_threshold
 
     old_full_members = [
         user
@@ -936,10 +933,10 @@ def update_users_in_full_members_system_group(
     old_full_member_ids = [user["id"] for user in old_full_members]
     new_full_member_ids = [user["id"] for user in new_full_members]
 
-    if len(old_full_members) > 0:
+    if old_full_members:
         remove_members_from_user_group(full_members_system_group, old_full_member_ids)
 
-    if len(new_full_members) > 0:
+    if new_full_members:
         bulk_add_members_to_user_group(full_members_system_group, new_full_member_ids)
 
 
@@ -1007,7 +1004,7 @@ def do_set_realm_property(
             # TODO: Design a bulk event for this or force-reload all clients
             send_user_email_update_event(user_profile)
 
-    if name == "waiting_period_threshold":
+    elif name == "waiting_period_threshold":
         update_users_in_full_members_system_group(realm)
 
 
@@ -1510,9 +1507,11 @@ def do_deactivate_stream(
     # Prepend a substring of the hashed stream ID to the new stream name
     streamID = str(stream.id)
     stream_id_hash_object = hashlib.sha512(streamID.encode())
-    hashed_stream_id = stream_id_hash_object.hexdigest()[0:7]
+    hashed_stream_id = stream_id_hash_object.hexdigest()[:7]
 
-    new_name = (hashed_stream_id + "!DEACTIVATED:" + old_name)[: Stream.MAX_NAME_LENGTH]
+    new_name = f"{hashed_stream_id}!DEACTIVATED:{old_name}"[
+        : Stream.MAX_NAME_LENGTH
+    ]
 
     stream.name = new_name[: Stream.MAX_NAME_LENGTH]
     stream.save(update_fields=["name", "deactivated", "invite_only"])
@@ -1715,7 +1714,7 @@ def get_recipient_info(
         # The sender and recipient may be the same id, so
         # de-duplicate using a set.
         message_to_user_ids = list({recipient.type_id, sender_id})
-        assert len(message_to_user_ids) in [1, 2]
+        assert len(message_to_user_ids) in {1, 2}
 
     elif recipient.type == Recipient.STREAM:
         # Anybody calling us w/r/t a stream message needs to supply
@@ -1763,7 +1762,7 @@ def get_recipient_info(
                 return False
             if row[setting] is not None:
                 return row[setting]
-            return row["user_profile_" + setting]
+            return row[f"user_profile_{setting}"]
 
         stream_push_user_ids = {
             row["user_profile_id"]
@@ -2100,7 +2099,7 @@ def build_message_send_dict(
     mentioned_bot_user_ids = default_bot_user_ids & mentioned_user_ids
     info["um_eligible_user_ids"] |= mentioned_bot_user_ids
 
-    message_send_dict = SendMessageRequest(
+    return SendMessageRequest(
         stream=stream,
         local_id=local_id,
         sender_queue_id=sender_queue_id,
@@ -2111,8 +2110,12 @@ def build_message_send_dict(
         rendering_result=rendering_result,
         active_user_ids=info["active_user_ids"],
         online_push_user_ids=info["online_push_user_ids"],
-        pm_mention_email_disabled_user_ids=info["pm_mention_email_disabled_user_ids"],
-        pm_mention_push_disabled_user_ids=info["pm_mention_push_disabled_user_ids"],
+        pm_mention_email_disabled_user_ids=info[
+            "pm_mention_email_disabled_user_ids"
+        ],
+        pm_mention_push_disabled_user_ids=info[
+            "pm_mention_push_disabled_user_ids"
+        ],
         stream_push_user_ids=info["stream_push_user_ids"],
         stream_email_user_ids=info["stream_email_user_ids"],
         muted_sender_user_ids=info["muted_sender_user_ids"],
@@ -2126,8 +2129,6 @@ def build_message_send_dict(
         widget_content=widget_content_dict,
         limit_unread_user_ids=limit_unread_user_ids,
     )
-
-    return message_send_dict
 
 
 def do_send_messages(
@@ -2902,9 +2903,7 @@ def already_sent_mirrored_message_id(message: Message) -> Optional[int]:
         message=message,
     )
 
-    if messages.exists():
-        return messages[0].id
-    return None
+    return messages[0].id if messages.exists() else None
 
 
 def extract_stream_indicator(s: str) -> Union[str, int]:
@@ -3152,10 +3151,7 @@ def can_edit_content_or_topic(
 
     # The can_edit_topic_of_any_message helper returns whether the user can edit the topic
     # or not based on edit_topic_policy setting and the user's role.
-    if user_profile.can_edit_topic_of_any_message():
-        return True
-
-    return False
+    return bool(user_profile.can_edit_topic_of_any_message())
 
 
 def check_update_message(
@@ -3309,7 +3305,7 @@ def check_update_message(
 
 
 def check_default_stream_group_name(group_name: str) -> None:
-    if group_name.strip() == "":
+    if not group_name.strip():
         raise JsonableError(_("Invalid default stream group name '{}'").format(group_name))
     if len(group_name) > DefaultStreamGroup.MAX_NAME_LENGTH:
         raise JsonableError(
@@ -3383,31 +3379,30 @@ def send_pm_if_empty_stream(
         "stream_name": f"#**{stream_name}**",
         "new_stream_link": "#streams/new",
     }
-    if sender.bot_owner is not None:
-        with override_language(sender.bot_owner.default_language):
-            if stream is None:
-                if stream_id is not None:
-                    content = _(
-                        "Your bot {bot_identity} tried to send a message to stream ID "
-                        "{stream_id}, but there is no stream with that ID."
-                    ).format(**arg_dict)
-                else:
-                    assert stream_name is not None
-                    content = _(
-                        "Your bot {bot_identity} tried to send a message to stream "
-                        "{stream_name}, but that stream does not exist. "
-                        "Click [here]({new_stream_link}) to create it."
-                    ).format(**arg_dict)
-            else:
-                if num_subscribers_for_stream_id(stream.id) > 0:
-                    return
+    with override_language(sender.bot_owner.default_language):
+        if stream is None:
+            if stream_id is not None:
                 content = _(
-                    "Your bot {bot_identity} tried to send a message to "
-                    "stream {stream_name}. The stream exists but "
-                    "does not have any subscribers."
+                    "Your bot {bot_identity} tried to send a message to stream ID "
+                    "{stream_id}, but there is no stream with that ID."
                 ).format(**arg_dict)
+            else:
+                assert stream_name is not None
+                content = _(
+                    "Your bot {bot_identity} tried to send a message to stream "
+                    "{stream_name}, but that stream does not exist. "
+                    "Click [here]({new_stream_link}) to create it."
+                ).format(**arg_dict)
+        elif num_subscribers_for_stream_id(stream.id) > 0:
+            return
+        else:
+            content = _(
+                "Your bot {bot_identity} tried to send a message to "
+                "stream {stream_name}. The stream exists but "
+                "does not have any subscribers."
+            ).format(**arg_dict)
 
-        send_rate_limited_pm_notification_to_bot_owner(sender, realm, content)
+    send_rate_limited_pm_notification_to_bot_owner(sender, realm, content)
 
 
 def validate_stream_name_with_pm_notification(
@@ -3628,7 +3623,7 @@ def _internal_prep_message(
     """
     # Remove any null bytes from the content
     if len(content) > settings.MAX_MESSAGE_LENGTH:
-        content = content[0:3900] + "\n\n[message was too long and has been truncated]"
+        content = content[:3900] + "\n\n[message was too long and has been truncated]"
 
     # If we have a stream name, and the stream doesn't exist, we
     # create it here (though this code path should probably be removed
@@ -4173,31 +4168,30 @@ def bulk_add_subs_to_db_with_logging(
     event_time = timezone_now()
     event_last_message_id = get_last_message_id()
 
-    all_subscription_logs: (List[RealmAuditLog]) = []
-    for sub_info in subs_to_add:
-        all_subscription_logs.append(
-            RealmAuditLog(
-                realm=realm,
-                acting_user=acting_user,
-                modified_user=sub_info.user,
-                modified_stream=sub_info.stream,
-                event_last_message_id=event_last_message_id,
-                event_type=RealmAuditLog.SUBSCRIPTION_CREATED,
-                event_time=event_time,
-            )
+    all_subscription_logs: (List[RealmAuditLog]) = [
+        RealmAuditLog(
+            realm=realm,
+            acting_user=acting_user,
+            modified_user=sub_info.user,
+            modified_stream=sub_info.stream,
+            event_last_message_id=event_last_message_id,
+            event_type=RealmAuditLog.SUBSCRIPTION_CREATED,
+            event_time=event_time,
         )
-    for sub_info in subs_to_activate:
-        all_subscription_logs.append(
-            RealmAuditLog(
-                realm=realm,
-                acting_user=acting_user,
-                modified_user=sub_info.user,
-                modified_stream=sub_info.stream,
-                event_last_message_id=event_last_message_id,
-                event_type=RealmAuditLog.SUBSCRIPTION_ACTIVATED,
-                event_time=event_time,
-            )
+        for sub_info in subs_to_add
+    ]
+    all_subscription_logs.extend(
+        RealmAuditLog(
+            realm=realm,
+            acting_user=acting_user,
+            modified_user=sub_info.user,
+            modified_stream=sub_info.stream,
+            event_last_message_id=event_last_message_id,
+            event_type=RealmAuditLog.SUBSCRIPTION_ACTIVATED,
+            event_time=event_time,
         )
+        for sub_info in subs_to_activate
+    )
     # Now since we have all log objects generated we can do a bulk insert
     RealmAuditLog.objects.bulk_create(all_subscription_logs)
 
@@ -4218,9 +4212,7 @@ def send_stream_creation_events_for_private_streams(
             # they can manage the new stream.
             # Realm admins already have all created private streams.
             realm_admin_ids = {user.id for user in realm.get_admin_users_and_bots()}
-            notify_user_ids = list(stream_users_ids - realm_admin_ids)
-
-            if notify_user_ids:
+            if notify_user_ids := list(stream_users_ids - realm_admin_ids):
                 send_stream_creation_event(stream, notify_user_ids)
 
 
@@ -4235,7 +4227,7 @@ def send_peer_subscriber_events(
     # subscribers lists of streams in their browser; everyone for
     # public streams and only existing subscribers for private streams.
 
-    assert op in ["peer_add", "peer_remove"]
+    assert op in {"peer_add", "peer_remove"}
 
     private_stream_ids = [
         stream_id for stream_id in altered_user_dict if stream_dict[stream_id].invite_only
@@ -4254,13 +4246,12 @@ def send_peer_subscriber_events(
             )
             send_event(realm, event, peer_user_ids)
 
-    public_stream_ids = [
+    if public_stream_ids := [
         stream_id
         for stream_id in altered_user_dict
-        if not stream_dict[stream_id].invite_only and not stream_dict[stream_id].is_in_zephyr_realm
-    ]
-
-    if public_stream_ids:
+        if not stream_dict[stream_id].invite_only
+        and not stream_dict[stream_id].is_in_zephyr_realm
+    ]:
         user_streams: Dict[int, Set[int]] = defaultdict(set)
 
         public_peer_ids = set(active_non_guest_user_ids(realm.id))
@@ -4485,13 +4476,10 @@ def do_change_subscription_property(
     database_value = value
     event_value = value
 
-    # For this property, is_muted is used in the database, but
-    # in_home_view in the API, since we haven't migrated the events
-    # API to the new name yet.
-    if property_name == "in_home_view":
+    if event_property_name == "in_home_view":
         database_property_name = "is_muted"
         database_value = not value
-    if property_name == "is_muted":
+    elif event_property_name == "is_muted":
         event_property_name = "in_home_view"
         event_value = not value
 

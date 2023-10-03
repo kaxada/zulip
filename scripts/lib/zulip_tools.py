@@ -107,8 +107,7 @@ def get_deploy_root() -> str:
 
 def parse_version_from(deploy_path: str) -> str:
     with open(os.path.join(deploy_path, "version.py")) as f:
-        result = re.search('ZULIP_VERSION = "(.*)"', f.read())
-        if result:
+        if result := re.search('ZULIP_VERSION = "(.*)"', f.read()):
             return result.groups()[0]
     return "0.0.0"
 
@@ -124,9 +123,7 @@ def get_deployment_version(extract_path: str) -> str:
 
 
 def is_invalid_upgrade(current_version: str, new_version: str) -> bool:
-    if new_version > "1.4.3" and current_version <= "1.3.10":
-        return True
-    return False
+    return new_version > "1.4.3" and current_version <= "1.3.10"
 
 
 def get_zulip_pwent() -> pwd.struct_passwd:
@@ -176,14 +173,13 @@ def get_dev_uuid_var_path(create_if_missing: bool = False) -> str:
     if os.path.exists(uuid_path):
         with open(uuid_path) as f:
             zulip_uuid = f.read().strip()
+    elif create_if_missing:
+        zulip_uuid = str(uuid.uuid4())
+        # We need root access here, since the path will be under /srv/ in the
+        # development environment.
+        run_as_root(["sh", "-c", 'echo "$1" > "$2"', "-", zulip_uuid, uuid_path])
     else:
-        if create_if_missing:
-            zulip_uuid = str(uuid.uuid4())
-            # We need root access here, since the path will be under /srv/ in the
-            # development environment.
-            run_as_root(["sh", "-c", 'echo "$1" > "$2"', "-", zulip_uuid, uuid_path])
-        else:
-            raise AssertionError("Missing UUID file; please run tools/provision!")
+        raise AssertionError("Missing UUID file; please run tools/provision!")
 
     result_path = os.path.join(zulip_path, "var", zulip_uuid)
     os.makedirs(result_path, exist_ok=True)
@@ -227,21 +223,18 @@ def release_deployment_lock() -> None:
 
 def run(args: Sequence[str], **kwargs: Any) -> None:
     # Output what we're doing in the `set -x` style
-    print("+ {}".format(" ".join(map(shlex.quote, args))), flush=True)
+    print(f'+ {" ".join(map(shlex.quote, args))}', flush=True)
 
     try:
         subprocess.check_call(args, **kwargs)
     except subprocess.CalledProcessError:
         print()
         print(
-            WHITEONRED
-            + "Error running a subcommand of {}: {}".format(
-                sys.argv[0],
-                " ".join(map(shlex.quote, args)),
-            )
-            + ENDC
+            f'{WHITEONRED}Error running a subcommand of {sys.argv[0]}: {" ".join(map(shlex.quote, args))}{ENDC}'
         )
-        print(WHITEONRED + "Actual error output for the subcommand is just above this." + ENDC)
+        print(
+            f"{WHITEONRED}Actual error output for the subcommand is just above this.{ENDC}"
+        )
         print()
         sys.exit(1)
 
@@ -262,9 +255,7 @@ def log_management_command(cmd: Sequence[str], log_path: str) -> None:
 
 
 def get_environment() -> str:
-    if os.path.exists(DEPLOYMENTS_DIR):
-        return "prod"
-    return "dev"
+    return "prod" if os.path.exists(DEPLOYMENTS_DIR) else "dev"
 
 
 def get_recent_deployments(threshold_days: int) -> Set[str]:
@@ -299,8 +290,7 @@ def get_threshold_timestamp(threshold_days: int) -> int:
     # Given number of days, this function returns timestamp corresponding
     # to the time prior to given number of days.
     threshold = datetime.datetime.now() - datetime.timedelta(days=threshold_days)
-    threshold_timestamp = int(time.mktime(threshold.utctimetuple()))
-    return threshold_timestamp
+    return int(time.mktime(threshold.utctimetuple()))
 
 
 def get_caches_to_be_purged(
@@ -508,13 +498,11 @@ def write_new_digest(
     # only write new digests when things have changed, and
     # making this system more transparent to developers
     # can help them troubleshoot provisioning glitches.
-    print("New digest written to: " + hash_path)
+    print(f"New digest written to: {hash_path}")
 
 
 def is_root() -> bool:
-    if "posix" in os.name and os.geteuid() == 0:
-        return True
-    return False
+    return "posix" in os.name and os.geteuid() == 0
 
 
 def run_as_root(args: List[str], **kwargs: Any) -> None:
@@ -636,7 +624,7 @@ def deport(netloc: str) -> str:
     IPv6 address are included."""
     r = SplitResult("", netloc, "", "", "")
     assert r.hostname is not None
-    return "[" + r.hostname + "]" if ":" in r.hostname else r.hostname
+    return f"[{r.hostname}]" if ":" in r.hostname else r.hostname
 
 
 def start_arg_parser(action: str, add_help: bool = False) -> argparse.ArgumentParser:

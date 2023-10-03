@@ -181,7 +181,7 @@ def generate_secrets(development: bool = False) -> None:
     if need_secret("zulip_org_id"):
         add_secret("zulip_org_id", str(uuid.uuid4()))
 
-    if len(lines) == 0:
+    if not lines:
         print("generate_secrets: No new secrets to generate.")
         return
 

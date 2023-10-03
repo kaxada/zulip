@@ -87,20 +87,12 @@ class BaseDocumentationSpider(scrapy.Spider):
         if "zulip.readthedocs" in url or "zulip.com" in url or "zulip.org" in url:
             # We want CI to check any links to Zulip sites.
             return False
-        if (len(url) > 4 and url[:4] == "file") or ("localhost" in url):
+        if len(url) > 4 and url.startswith("file") or "localhost" in url:
             # We also want CI to check any links to built documentation.
             return False
-        if url.startswith(ZULIP_SERVER_GITHUB_FILE_URL_PREFIX) or url.startswith(
-            ZULIP_SERVER_GITHUB_DIRECTORY_URL_PREFIX
-        ):
-            # We can verify these links directly in the local Git repo without making any requests to GitHub servers.
-            return False
-        if "github.com/zulip" in url:
-            # We want to check these links but due to rate limiting from GitHub, these checks often
-            # fail in the CI. Thus, we should treat these as external links for now.
-            # TODO: Figure out how to test github.com/zulip links in CI.
-            return True
-        return True
+        return not url.startswith(
+            ZULIP_SERVER_GITHUB_FILE_URL_PREFIX
+        ) and not url.startswith(ZULIP_SERVER_GITHUB_DIRECTORY_URL_PREFIX)
 
     def check_fragment(self, response: Response) -> None:
         self.log(response)
@@ -140,7 +132,7 @@ class BaseDocumentationSpider(scrapy.Spider):
         # we don't want to crawl the web app itself, so we exclude
         # these.
         if (
-            url in ["http://localhost:9981/", "http://localhost:9981"]
+            url in {"http://localhost:9981/", "http://localhost:9981"}
             or url.startswith("http://localhost:9981/#")
             or url.startswith("http://localhost:9981#")
         ):

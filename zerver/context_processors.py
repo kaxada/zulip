@@ -76,9 +76,7 @@ def get_valid_realm_from_request(request: HttpRequest) -> Realm:
 
 
 def get_apps_page_url() -> str:
-    if settings.ZILENCER_ENABLED:
-        return "/apps/"
-    return "https://zulip.com/apps/"
+    return "/apps/" if settings.ZILENCER_ENABLED else "https://zulip.com/apps/"
 
 
 def is_isolated_page(request: HttpRequest) -> bool:
@@ -120,7 +118,7 @@ def zulip_default_context(request: HttpRequest) -> Dict[str, Any]:
         find_team_link_disabled = False
         allow_search_engine_indexing = True
 
-    apps_page_web = settings.ROOT_DOMAIN_URI + "/accounts/go/"
+    apps_page_web = f"{settings.ROOT_DOMAIN_URI}/accounts/go/"
 
     user_is_authenticated = False
     if hasattr(request, "user") and hasattr(request.user, "is_authenticated"):
@@ -234,15 +232,14 @@ def login_context(request: HttpRequest) -> Dict[str, Any]:
         external_authentication_methods=get_external_method_dicts(realm),
     )
     for auth_dict in context["page_params"]["external_authentication_methods"]:
-        auth_dict["button_id_suffix"] = "auth_button_{}".format(auth_dict["name"])
+        auth_dict["button_id_suffix"] = f'auth_button_{auth_dict["name"]}'
 
     return context
 
 
 def latest_info_context() -> Dict[str, str]:
-    context = {
+    return {
         "latest_release_version": LATEST_RELEASE_VERSION,
         "latest_major_version": LATEST_MAJOR_VERSION,
         "latest_release_announcement": LATEST_RELEASE_ANNOUNCEMENT,
     }
-    return context

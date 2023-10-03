@@ -188,9 +188,7 @@ def renewal_amount(plan: CustomerPlan, event_time: datetime) -> int:  # nocovera
 
 
 def get_idempotency_key(ledger_entry: LicenseLedger) -> Optional[str]:
-    if settings.TEST_SUITE:
-        return None
-    return f"ledger_entry:{ledger_entry.id}"  # nocoverage
+    return None if settings.TEST_SUITE else f"ledger_entry:{ledger_entry.id}"
 
 
 def cents_to_dollar_string(cents: int) -> str:
@@ -867,10 +865,7 @@ def invoice_plan(plan: CustomerPlan, event_time: datetime) -> None:
                 "unit_amount": int(plan.price_per_license * proration_fraction + 0.5),
                 "quantity": ledger_entry.licenses - licenses_base,
             }
-            description = "Additional license ({} - {})".format(
-                ledger_entry.event_time.strftime("%b %-d, %Y"),
-                plan_renewal_or_end_date.strftime("%b %-d, %Y"),
-            )
+            description = f'Additional license ({ledger_entry.event_time.strftime("%b %-d, %Y")} - {plan_renewal_or_end_date.strftime("%b %-d, %Y")})'
 
         if price_args:
             plan.invoiced_through = ledger_entry
@@ -1001,9 +996,7 @@ def is_sponsored_realm(realm: Realm) -> bool:
 
 def get_discount_for_realm(realm: Realm) -> Optional[Decimal]:
     customer = get_customer_by_realm(realm)
-    if customer is not None:
-        return customer.default_discount
-    return None
+    return customer.default_discount if customer is not None else None
 
 
 def do_change_plan_status(plan: CustomerPlan, status: int) -> None:
@@ -1102,10 +1095,13 @@ def customer_has_last_n_invoices_open(customer: Customer, n: int) -> bool:
     if customer.stripe_customer_id is None:  # nocoverage
         return False
 
-    open_invoice_count = 0
-    for invoice in stripe.Invoice.list(customer=customer.stripe_customer_id, limit=n):
-        if invoice.status == "open":
-            open_invoice_count += 1
+    open_invoice_count = sum(
+        1
+        for invoice in stripe.Invoice.list(
+            customer=customer.stripe_customer_id, limit=n
+        )
+        if invoice.status == "open"
+    )
     return open_invoice_count == n
 
 
@@ -1140,9 +1136,8 @@ def downgrade_small_realms_behind_on_payments_as_needed() -> None:
                 language=realm.default_language,
                 context=context,
             )
-        else:
-            if customer_has_last_n_invoices_open(customer, 1):
-                void_all_open_invoices(realm)
+        elif customer_has_last_n_invoices_open(customer, 1):
+            void_all_open_invoices(realm)
 
 
 def switch_realm_from_standard_to_plus_plan(realm: Realm) -> None:

@@ -158,14 +158,13 @@ def get_sorting_info(category: str, sort_order: int) -> str:
 
 
 def get_images_html(emoji_code: str) -> str:
-    images_html = ""
-    for emojiset in EMOJISETS:
-        images_html += EMOJI_IMAGE_TEMPLATE.format(
+    return "".join(
+        EMOJI_IMAGE_TEMPLATE.format(
             emoji_code=emoji_code,
             emojiset=emojiset,
         )
-
-    return images_html
+        for emojiset in EMOJISETS
+    )
 
 
 def generate_emoji_collection() -> None:

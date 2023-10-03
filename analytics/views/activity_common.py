@@ -14,10 +14,6 @@ from markupsafe import Markup as mark_safe
 eastern_tz = pytz.timezone("US/Eastern")
 
 
-if settings.BILLING_ENABLED:
-    pass
-
-
 def make_table(
     title: str, cols: Sequence[str], rows: Sequence[Any], has_row_class: bool = False
 ) -> str:
@@ -46,10 +42,7 @@ def dictfetchall(cursor: CursorWrapper) -> List[Dict[str, Any]]:
 
 
 def format_date_for_activity_reports(date: Optional[datetime]) -> str:
-    if date:
-        return date.astimezone(eastern_tz).strftime("%Y-%m-%d %H:%M")
-    else:
-        return ""
+    return date.astimezone(eastern_tz).strftime("%Y-%m-%d %H:%M") if date else ""
 
 
 def user_activity_link(email: str, user_profile_id: int) -> mark_safe:
@@ -125,12 +118,12 @@ def get_user_activity_summary(records: List[QuerySet]) -> Dict[str, Any]:
             update("website", record)
         if ("send_message" in query) or re.search("/api/.*/external/.*", query):
             update("send", record)
-        if query in [
+        if query in {
             "/json/update_pointer",
             "/json/users/me/pointer",
             "/api/v1/update_pointer",
             "update_pointer_backend",
-        ]:
+        }:
             update("pointer", record)
         update(client, record)
 

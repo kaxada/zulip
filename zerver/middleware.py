@@ -115,15 +115,18 @@ def is_slow_query(time_delta: float, path: str) -> bool:
     if time_delta < 1.2:
         return False
     is_exempt = (
-        path in ["/activity", "/json/report/error", "/api/v1/deployments/report_error"]
+        path
+        in {
+            "/activity",
+            "/json/report/error",
+            "/api/v1/deployments/report_error",
+        }
         or path.startswith("/realm_activity/")
         or path.startswith("/user_activity/")
     )
     if is_exempt:
         return time_delta >= 5
-    if "webathena_kerberos" in path:
-        return time_delta >= 10
-    return True
+    return time_delta >= 10 if "webathena_kerberos" in path else True
 
 
 statsd_blacklisted_requests = [
@@ -170,7 +173,7 @@ def write_log_line(
         if path == "/":
             statsd_path = "webreq"
         else:
-            statsd_path = "webreq.{}".format(path[1:].replace("/", "."))
+            statsd_path = f'webreq.{path[1:].replace("/", ".")}'
             # Remove non-ascii chars from path (there should be none; if there are, it's
             # because someone manually entered a nonexistent path), as UTF-8 chars make
             # statsd sad when it sends the key name over the socket
@@ -222,7 +225,9 @@ def write_log_line(
 
     startup_output = ""
     if "startup_time_delta" in log_data and log_data["startup_time_delta"] > 0.005:
-        startup_output = " (+start: {})".format(format_timedelta(log_data["startup_time_delta"]))
+        startup_output = (
+            f' (+start: {format_timedelta(log_data["startup_time_delta"])})'
+        )
 
     markdown_output = ""
     if "markdown_time_start" in log_data:
@@ -259,17 +264,18 @@ def write_log_line(
             statsd.incr(f"{statsd_path}.dbq", len(queries))
             statsd.timing(f"{statsd_path}.total", timedelta_ms(time_delta))
 
-    if "extra" in log_data:
-        extra_request_data = " {}".format(log_data["extra"])
-    else:
-        extra_request_data = ""
+    extra_request_data = f' {log_data["extra"]}' if "extra" in log_data else ""
     if client_version is None:
         logger_client = f"({requestor_for_logs} via {client_name})"
     else:
         logger_client = f"({requestor_for_logs} via {client_name}/{client_version})"
     logger_timing = f"{format_timedelta(time_delta):>5}{optional_orig_delta}{remote_cache_output}{markdown_output}{db_time_output}{startup_output} {path}"
     logger_line = f"{remote_ip:<15} {method:<7} {status_code:3} {logger_timing}{extra_request_data} {logger_client}"
-    if status_code in [200, 304] and method == "GET" and path.startswith("/static"):
+    if (
+        status_code in {200, 304}
+        and method == "GET"
+        and path.startswith("/static")
+    ):
         logger.debug(logger_line)
     else:
         logger.info(logger_line)
@@ -279,7 +285,9 @@ def write_log_line(
 
     if settings.PROFILE_ALL_REQUESTS:
         log_data["prof"].disable()
-        profile_path = "/tmp/profile.data.{}.{}".format(path.split("/")[-1], int(time_delta * 1000))
+        profile_path = (
+            f'/tmp/profile.data.{path.split("/")[-1]}.{int(time_delta * 1000)}'
+        )
         log_data["prof"].dump_stats(profile_path)
 
     # Log some additional data whenever we return certain 40x errors
@@ -399,12 +407,10 @@ class LogRequests(MiddlewareMixin):
         request_notes = RequestNotes.get_notes(request)
         requestor_for_logs = request_notes.requestor_for_logs
         if requestor_for_logs is None:
-            # Note that request.user is a Union[RemoteZulipServer, UserProfile, AnonymousUser],
-            # if it is present.
             if hasattr(request, "user") and hasattr(request.user, "format_requestor_for_logs"):
                 requestor_for_logs = request.user.format_requestor_for_logs()
             else:
-                requestor_for_logs = "unauth@{}".format(get_subdomain(request) or "root")
+                requestor_for_logs = f'unauth@{get_subdomain(request) or "root"}'
 
         if response.streaming:
             assert isinstance(response, StreamingHttpResponse)

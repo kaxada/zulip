@@ -18,11 +18,7 @@ DEFAULT_PRODUCTION = False
 
 
 def get_yarn_args(production: bool) -> List[str]:
-    if production:
-        yarn_args = ["--prod"]
-    else:
-        yarn_args = []
-    return yarn_args
+    return ["--prod"] if production else []
 
 
 def generate_sha1sum_node_modules(

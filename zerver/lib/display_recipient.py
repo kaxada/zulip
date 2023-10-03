@@ -199,4 +199,4 @@ def bulk_fetch_display_recipients(
     )
 
     # Glue the dicts together and return:
-    return {**stream_display_recipients, **personal_and_huddle_display_recipients}
+    return stream_display_recipients | personal_and_huddle_display_recipients

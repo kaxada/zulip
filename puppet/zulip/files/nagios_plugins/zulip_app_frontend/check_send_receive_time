@@ -83,9 +83,9 @@ def report(state: str, timestamp: Any = None, msg: Optional[str] = None) -> None
     if msg is None:
         msg = f"send time was {timestamp}"
     state_file_path = "/var/lib/nagios_state/check_send_receive_state"
-    with open(state_file_path + ".tmp", "w") as f:
+    with open(f"{state_file_path}.tmp", "w") as f:
         f.write(f"{now}|{states[state]}|{state}|{msg}\n")
-    os.rename(state_file_path + ".tmp", state_file_path)
+    os.rename(f"{state_file_path}.tmp", state_file_path)
     print(f"{state}: {msg}")
     exit(states[state])
 
@@ -100,7 +100,7 @@ def get_zulips() -> List[Dict[str, Any]]:
     global queue_id, last_event_id
     res = zulip_recipient.get_events(queue_id=queue_id, last_event_id=last_event_id)
     if "error" in res.get("result", {}):
-        report("CRITICAL", msg="Error receiving Zulips, error was: {}".format(res["msg"]))
+        report("CRITICAL", msg=f'Error receiving Zulips, error was: {res["msg"]}')
     for event in res["events"]:
         last_event_id = max(last_event_id, int(event["id"]))
     # If we get a heartbeat event, that means we've been hanging for
@@ -143,7 +143,7 @@ zulip_recipient = zulip.Client(
 try:
     res = zulip_recipient.register(event_types=["message"])
     if "error" in res.get("result", {}):
-        report("CRITICAL", msg="Error subscribing to Zulips: {}".format(res["msg"]))
+        report("CRITICAL", msg=f'Error subscribing to Zulips: {res["msg"]}')
     queue_id, last_event_id = (res["queue_id"], res["last_event_id"])
 except Exception:
     report("CRITICAL", msg=f"Error subscribing to Zulips:\n{traceback.format_exc()}")

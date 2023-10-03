@@ -187,10 +187,7 @@ def start_webpack_watcher() -> "subprocess.Popen[bytes]":
 def transform_url(protocol: str, path: str, query: str, target_port: int, target_host: str) -> str:
     # generate url with target host
     host = ":".join((target_host, str(target_port)))
-    # Here we are going to rewrite the path a bit so that it is in parity with
-    # what we will have for production
-    newpath = urlunparse((protocol, host, path, "", query, ""))
-    return newpath
+    return urlunparse((protocol, host, path, "", query, ""))
 
 
 @gen.engine
@@ -339,7 +336,7 @@ def print_listeners() -> None:
         # Technically, the `zulip.` is a subdomain of the server, so
         # this is kinda misleading, but 99% of development is done on
         # the default/zulip subdomain.
-        default_hostname = "zulip." + os.uname()[1].lower()
+        default_hostname = f"zulip.{os.uname()[1].lower()}"
     else:
         default_hostname = "localhost"
     external_host = os.getenv("EXTERNAL_HOST", f"{default_hostname}:{proxy_port}")
@@ -366,9 +363,7 @@ try:
     else:
         children.append(start_webpack_watcher())
 
-    for cmd in server_processes():
-        children.append(subprocess.Popen(cmd))
-
+    children.extend(subprocess.Popen(cmd) for cmd in server_processes())
     app = Application(enable_logging=options.enable_tornado_logging)
     try:
         app.listen(proxy_port, address=options.interface)

@@ -285,8 +285,7 @@ def build_recipient(type_id: int, recipient_id: int, type: int) -> ZerverFieldsT
         id=recipient_id,
         type=type,
     )
-    recipient_dict = model_to_dict(recipient)
-    return recipient_dict
+    return model_to_dict(recipient)
 
 
 def build_recipients(
@@ -340,7 +339,7 @@ def build_recipients(
 def build_realm(
     zerver_realm: List[ZerverFieldsT], realm_id: int, domain_name: str
 ) -> ZerverFieldsT:
-    realm = dict(
+    return dict(
         zerver_client=[
             {"name": "populate_db", "id": 1},
             {"name": "website", "id": 2},
@@ -351,7 +350,12 @@ def build_realm(
         zerver_userpresence=[],  # shows last logged in data, which is not available
         zerver_userprofile_mirrordummy=[],
         zerver_realmdomain=[
-            {"realm": realm_id, "allow_subdomains": False, "domain": domain_name, "id": realm_id}
+            {
+                "realm": realm_id,
+                "allow_subdomains": False,
+                "domain": domain_name,
+                "id": realm_id,
+            }
         ],
         zerver_useractivity=[],
         zerver_realm=zerver_realm,
@@ -363,7 +367,6 @@ def build_realm(
         zerver_realmfilter=[],
         zerver_realmplayground=[],
     )
-    return realm
 
 
 def build_usermessages(
@@ -375,11 +378,9 @@ def build_usermessages(
     is_private: bool,
     long_term_idle: AbstractSet[int] = set(),
 ) -> Tuple[int, int]:
-    user_ids = subscriber_map.get(recipient_id, set())
-
     user_messages_created = 0
     user_messages_skipped = 0
-    if user_ids:
+    if user_ids := subscriber_map.get(recipient_id, set()):
         for user_id in sorted(user_ids):
             is_mentioned = user_id in mentioned_user_ids
 
@@ -417,18 +418,16 @@ def build_user_message(
 
     id = NEXT_ID("user_message")
 
-    usermessage = dict(
+    return dict(
         id=id,
         user_profile=user_id,
         message=message_id,
         flags_mask=flags_mask,
     )
-    return usermessage
 
 
 def build_defaultstream(realm_id: int, stream_id: int, defaultstream_id: int) -> ZerverFieldsT:
-    defaultstream = dict(stream=stream_id, realm=realm_id, id=defaultstream_id)
-    return defaultstream
+    return dict(stream=stream_id, realm=realm_id, id=defaultstream_id)
 
 
 def build_stream(
@@ -607,9 +606,7 @@ def run_parallel_wrapper(
     logging.info("Distributing %s items across %s threads", len(full_items), threads)
 
     with multiprocessing.Pool(threads) as p:
-        count = 0
-        for out in p.imap_unordered(partial(wrapping_function, f), full_items):
-            count += 1
+        for count, _ in enumerate(p.imap_unordered(partial(wrapping_function, f), full_items), start=1):
             if count % 1000 == 0:
                 logging.info("Finished %s items", count)
 

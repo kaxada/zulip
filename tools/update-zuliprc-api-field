@@ -8,6 +8,7 @@ Usage:
 ./tools/update-zuliprc-api-field /path/to/zuliprc_dev
 """
 
+
 import argparse
 import configparser
 import os
@@ -55,7 +56,7 @@ for zuliprc_path in zuliprc_paths_list:
                 "vagrant",
                 "ssh",
                 "--command",
-                "./manage.py print_initial_password " + shlex.quote(email),
+                f"./manage.py print_initial_password {shlex.quote(email)}",
             ]
         else:
             # Support users who don't have vagrant based setup

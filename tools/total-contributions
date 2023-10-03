@@ -26,14 +26,14 @@ def add_log(committer_dict: Dict[str, int], input: List[str]) -> None:
 
 def retrieve_log(repo: str, lower_version: str, upper_version: str) -> List[str]:
     return subprocess.check_output(
-        ["git", "shortlog", "-s", lower_version + ".." + upper_version],
+        ["git", "shortlog", "-s", f"{lower_version}..{upper_version}"],
         cwd=find_path(repo),
         text=True,
     ).splitlines()
 
 
 def find_path(repository: str) -> str:
-    return os.path.dirname((pathlib.Path().resolve()).parents[0]) + "/" + repository
+    return f"{os.path.dirname(pathlib.Path().resolve().parents[0])}/{repository}"
 
 
 def find_last_commit_before_time(repository: str, branch: str, time: str) -> str:
@@ -103,11 +103,7 @@ if len(args.version) > 2:
     parser.error("Expects 0 to 2 version number(s)")
 
 lower_zulip_version = args.version[0]
-if len(args.version) == 1:
-    upper_zulip_version = "main"
-else:
-    upper_zulip_version = args.version[1]
-
+upper_zulip_version = "main" if len(args.version) == 1 else args.version[1]
 subprocess.check_call(["git", "fetch"], cwd=find_path("zulip"))
 
 # Extract git version and time. It's important that we use the commit
@@ -147,7 +143,7 @@ commit_count = len(
 )
 repo_log = retrieve_log("zulip", lower_zulip_version, upper_zulip_version)
 print(
-    f"{commit_count} commits from zulip/zulip: {lower_zulip_version[0:12]}..{upper_zulip_version[0:12]}"
+    f"{commit_count} commits from zulip/zulip: {lower_zulip_version[:12]}..{upper_zulip_version[:12]}"
 )
 add_log(out_dict, repo_log)
 
@@ -186,7 +182,7 @@ for (full_repository, branch) in [
     )
     repo_log = retrieve_log(repository, lower_repo_version, upper_repo_version)
     print(
-        f"{commit_count} commits from {full_repository}: {lower_repo_version[0:12]}..{upper_repo_version[0:12]}"
+        f"{commit_count} commits from {full_repository}: {lower_repo_version[:12]}..{upper_repo_version[:12]}"
     )
     add_log(out_dict, repo_log)
 

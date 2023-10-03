@@ -53,14 +53,11 @@ def user_alert_words(user_profile: UserProfile) -> List[str]:
 def add_user_alert_words(user_profile: UserProfile, new_words: Iterable[str]) -> List[str]:
     existing_words_lower = {word.lower() for word in user_alert_words(user_profile)}
 
-    # Keeping the case, use a dictionary to get the set of
-    # case-insensitive distinct, new alert words
-    word_dict: Dict[str, str] = {}
-    for word in new_words:
-        if word.lower() in existing_words_lower:
-            continue
-        word_dict[word.lower()] = word
-
+    word_dict: Dict[str, str] = {
+        word.lower(): word
+        for word in new_words
+        if word.lower() not in existing_words_lower
+    }
     AlertWord.objects.bulk_create(
         AlertWord(user_profile=user_profile, word=word, realm=user_profile.realm)
         for word in word_dict.values()

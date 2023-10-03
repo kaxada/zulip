@@ -117,8 +117,7 @@ def get_package_names(requirements_file: str) -> List[str]:
             if operator in package:
                 package = package.split(operator)[0]
 
-        package = package.strip()
-        if package:
+        if package := package.strip():
             cleaned.append(package.lower())
 
     return sorted(cleaned)
@@ -346,7 +345,7 @@ def do_setup_virtualenv(venv_path: str, requirements_file: str) -> None:
     except subprocess.CalledProcessError:
         try:
             # Might be a failure due to network connection issues. Retrying...
-            print(WARNING + "`pip install` failed; retrying..." + ENDC)
+            print(f"{WARNING}`pip install` failed; retrying...{ENDC}")
             install_venv_deps(pip, requirements_file)
         except BaseException as e:
             # Suppress exception chaining

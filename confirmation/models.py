@@ -101,17 +101,16 @@ def create_confirmation_link(
 
     current_time = timezone_now()
     expiry_date = None
-    if not isinstance(validity_in_days, UnspecifiedValue):
-        if validity_in_days is None:
-            expiry_date = None
-        else:
-            assert validity_in_days is not None
-            expiry_date = current_time + datetime.timedelta(days=validity_in_days)
-    else:
+    if isinstance(validity_in_days, UnspecifiedValue):
         expiry_date = current_time + datetime.timedelta(
             days=_properties[confirmation_type].validity_in_days
         )
 
+    elif validity_in_days is None:
+        expiry_date = None
+    else:
+        assert validity_in_days is not None
+        expiry_date = current_time + datetime.timedelta(days=validity_in_days)
     Confirmation.objects.create(
         content_object=obj,
         date_sent=current_time,

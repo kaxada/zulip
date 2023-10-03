@@ -12,10 +12,7 @@ from scripts.lib.setup_path import setup_path
 setup_path()
 
 
-current_path = "/etc/zulip/settings.py"
-if len(sys.argv) >= 2:
-    current_path = sys.argv[1]
-
+current_path = sys.argv[1] if len(sys.argv) >= 2 else "/etc/zulip/settings.py"
 print(f"Reading current configuration from {current_path}...")
 with open(current_path) as f:
     current_contents = f.read()

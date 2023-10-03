@@ -263,11 +263,11 @@ def fix_customprofilefield(data: TableData) -> None:
     In CustomProfileField with 'field_type' like 'USER', the IDs need to be
     re-mapped.
     """
-    field_type_USER_id_list = []
-    for item in data["zerver_customprofilefield"]:
-        if item["field_type"] == CustomProfileField.USER:
-            field_type_USER_id_list.append(item["id"])
-
+    field_type_USER_id_list = [
+        item["id"]
+        for item in data["zerver_customprofilefield"]
+        if item["field_type"] == CustomProfileField.USER
+    ]
     for item in data["zerver_customprofilefieldvalue"]:
         if item["field_id"] in field_type_USER_id_list:
             old_user_id_list = orjson.loads(item["value"])
@@ -374,10 +374,7 @@ def current_table_ids(data: TableData, table: TableName) -> List[int]:
     """
     Returns the ids present in the current table
     """
-    id_list = []
-    for item in data[table]:
-        id_list.append(item["id"])
-    return id_list
+    return [item["id"] for item in data[table]]
 
 
 def idseq(model_class: Any) -> str:
@@ -418,7 +415,7 @@ def convert_to_id_fields(data: TableData, table: TableName, field_name: Field) -
     database, see re_map_foreign_keys.
     """
     for item in data[table]:
-        item[field_name + "_id"] = item[field_name]
+        item[f"{field_name}_id"] = item[field_name]
         del item[field_name]
 
 
@@ -491,12 +488,16 @@ def re_map_foreign_keys_internal(
             new_id = lookup_table[old_id]
             if verbose:
                 logging.info(
-                    "Remapping %s %s from %s to %s", table, field_name + "_id", old_id, new_id
+                    "Remapping %s %s from %s to %s",
+                    table,
+                    f"{field_name}_id",
+                    old_id,
+                    new_id,
                 )
         else:
             new_id = old_id
         if not id_field:
-            item[field_name + "_id"] = new_id
+            item[f"{field_name}_id"] = new_id
             del item[field_name]
         else:
             item[field_name] = new_id
@@ -511,11 +512,7 @@ def re_map_realm_emoji_codes(data: TableData, *, table_name: str) -> None:
     See the block comment for emoji_code in the AbstractEmoji
     definition for more details.
     """
-    realm_emoji_dct = {}
-
-    for row in data["zerver_realmemoji"]:
-        realm_emoji_dct[row["id"]] = row
-
+    realm_emoji_dct = {row["id"]: row for row in data["zerver_realmemoji"]}
     for row in data[table_name]:
         if row["reaction_type"] == Reaction.REALM_EMOJI:
             old_realm_emoji_id = int(row["emoji_code"])
@@ -574,7 +571,11 @@ def re_map_foreign_keys_many_to_many_internal(
             new_id = lookup_table[old_id]
             if verbose:
                 logging.info(
-                    "Remapping %s %s from %s to %s", table, field_name + "_id", old_id, new_id
+                    "Remapping %s %s from %s to %s",
+                    table,
+                    f"{field_name}_id",
+                    old_id,
+                    new_id,
                 )
         else:
             new_id = old_id
@@ -584,8 +585,8 @@ def re_map_foreign_keys_many_to_many_internal(
 
 def fix_bitfield_keys(data: TableData, table: TableName, field_name: Field) -> None:
     for item in data[table]:
-        item[field_name] = item[field_name + "_mask"]
-        del item[field_name + "_mask"]
+        item[field_name] = item[f"{field_name}_mask"]
+        del item[f"{field_name}_mask"]
 
 
 def fix_realm_authentication_bitfield(data: TableData, table: TableName, field_name: Field) -> None:
@@ -777,9 +778,7 @@ def import_uploads(
             bucket_name = settings.S3_AUTH_UPLOADS_BUCKET
         bucket = get_bucket(bucket_name)
 
-    count = 0
-    for record in records:
-        count += 1
+    for count, record in enumerate(records, start=1):
         if count % 1000 == 0:
             logging.info("Processed %s/%s uploads", count, len(records))
 
@@ -789,13 +788,8 @@ def import_uploads(
             relative_path = user_avatar_path_from_ids(record["user_profile_id"], record["realm_id"])
             if record["s3_path"].endswith(".original"):
                 relative_path += ".original"
-            else:
-                # TODO: This really should be unconditional.  However,
-                # until we fix the S3 upload backend to use the .png
-                # path suffix for its normal avatar URLs, we need to
-                # only do this for the LOCAL_UPLOADS_DIR backend.
-                if not s3_uploads:
-                    relative_path += ".png"
+            elif not s3_uploads:
+                relative_path += ".png"
         elif processing_emojis:
             # For emojis we follow the function 'upload_emoji_image'
             relative_path = RealmEmoji.PATH_ID_TEMPLATE.format(
@@ -818,15 +812,9 @@ def import_uploads(
         if s3_uploads:
             key = bucket.Object(relative_path)
             metadata = {}
-            if processing_emojis and "user_profile_id" not in record:
-                # Exported custom emoji from tools like Slack don't have
-                # the data for what user uploaded them in `user_profile_id`.
-                pass
-            elif processing_realm_icons and "user_profile_id" not in record:
-                # Exported realm icons and logos from local export don't have
-                # the value of user_profile_id in the associated record.
-                pass
-            else:
+            if (not processing_emojis or "user_profile_id" in record) and (
+                not processing_realm_icons or "user_profile_id" in record
+            ):
                 user_profile_id = int(record["user_profile_id"])
                 # Support email gateway bot and other cross-realm messages
                 if user_profile_id in ID_MAP["user_profile"]:
@@ -843,12 +831,12 @@ def import_uploads(
             content_type = record.get("content_type")
             if content_type is None:
                 content_type = guess_type(record["s3_path"])[0]
-                if content_type is None:
-                    # This is the default for unknown data.  Note that
-                    # for `.original` files, this is the value we'll
-                    # set; that is OK, because those are never served
-                    # directly anyway.
-                    content_type = "application/octet-stream"
+            if content_type is None:
+                # This is the default for unknown data.  Note that
+                # for `.original` files, this is the value we'll
+                # set; that is OK, because those are never served
+                # directly anyway.
+                content_type = "application/octet-stream"
 
             key.upload_file(
                 Filename=os.path.join(import_dir, record["path"]),
@@ -856,20 +844,22 @@ def import_uploads(
             )
         else:
             assert settings.LOCAL_UPLOADS_DIR is not None
-            if processing_avatars or processing_emojis or processing_realm_icons:
-                file_path = os.path.join(settings.LOCAL_UPLOADS_DIR, "avatars", relative_path)
-            else:
-                file_path = os.path.join(settings.LOCAL_UPLOADS_DIR, "files", relative_path)
+            file_path = (
+                os.path.join(
+                    settings.LOCAL_UPLOADS_DIR, "avatars", relative_path
+                )
+                if processing_avatars
+                or processing_emojis
+                or processing_realm_icons
+                else os.path.join(
+                    settings.LOCAL_UPLOADS_DIR, "files", relative_path
+                )
+            )
             orig_file_path = os.path.join(import_dir, record["path"])
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             shutil.copy(orig_file_path, file_path)
 
     if processing_avatars:
-        # Ensure that we have medium-size avatar images for every
-        # avatar.  TODO: This implementation is hacky, both in that it
-        # does get_user_profile_by_id for each user, and in that it
-        # might be better to require the export to just have these.
-
         if processes == 1:
             for record in records:
                 process_avatars(record)
@@ -877,7 +867,7 @@ def import_uploads(
             connection.close()
             cache._cache.disconnect_all()
             with multiprocessing.Pool(processes) as p:
-                for out in p.imap_unordered(process_avatars, records):
+                for _ in p.imap_unordered(process_avatars, records):
                     pass
 
 

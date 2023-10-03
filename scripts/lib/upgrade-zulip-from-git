@@ -103,7 +103,13 @@ try:
     )
     os.chdir(deploy_path)
     subprocess.check_call(
-        ["git", "checkout", "-qtb", "deployment-" + os.path.basename(deploy_path), refname],
+        [
+            "git",
+            "checkout",
+            "-qtb",
+            f"deployment-{os.path.basename(deploy_path)}",
+            refname,
+        ],
         preexec_fn=su_to_zulip,
     )
 

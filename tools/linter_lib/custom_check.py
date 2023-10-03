@@ -510,7 +510,7 @@ bash_rules = RuleList(
                 "scripts/setup/configure-rabbitmq",
             },
         },
-        *whitespace_rules[0:1],
+        *whitespace_rules[:1],
     ],
     shebang_rules=shebang_rules,
 )

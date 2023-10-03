@@ -54,8 +54,7 @@ def redact_email_address(error_message: str) -> str:
         # EMAIL_GATEWAY_EXTRA_PATTERN_HACK is of the form '@example.com'
         domain = settings.EMAIL_GATEWAY_EXTRA_PATTERN_HACK[1:]
 
-    address_match = re.search("\\b(\\S*?)@" + domain, error_message)
-    if address_match:
+    if address_match := re.search("\\b(\\S*?)@" + domain, error_message):
         email_address = address_match.group(0)
         # Annotate basic info about the address before scrubbing:
         if is_missed_message_address(email_address):
@@ -74,9 +73,7 @@ def redact_email_address(error_message: str) -> str:
 
         # Scrub the address from the message, to the form XXXXX@example.com:
         string_to_scrub = address_match.groups()[0]
-        redacted_message = redacted_message.replace(string_to_scrub, "X" * len(string_to_scrub))
-        return redacted_message
-
+        return redacted_message.replace(string_to_scrub, "X" * len(string_to_scrub))
     return error_message
 
 
@@ -96,9 +93,7 @@ def report_to_zulip(error_message: str) -> None:
 
 def log_and_report(email_message: EmailMessage, error_message: str, to: Optional[str]) -> None:
     recipient = to or "No recipient found"
-    error_message = "Sender: {}\nTo: {}\n{}".format(
-        email_message.get("From"), recipient, error_message
-    )
+    error_message = f'Sender: {email_message.get("From")}\nTo: {recipient}\n{error_message}'
 
     error_message = redact_email_address(error_message)
     logger.error(error_message)
@@ -109,7 +104,7 @@ def log_and_report(email_message: EmailMessage, error_message: str, to: Optional
 
 
 def generate_missed_message_token() -> str:
-    return "mm" + secrets.token_hex(16)
+    return f"mm{secrets.token_hex(16)}"
 
 
 def is_missed_message_address(address: str) -> bool:
@@ -265,15 +260,13 @@ def extract_body(
     if prefer_text:
         if plaintext_content:
             return plaintext_content
-        else:
-            assert html_content  # Needed for mypy. Ensured by the validating block above.
-            return html_content
+        assert html_content  # Needed for mypy. Ensured by the validating block above.
+        return html_content
     else:
         if html_content:
             return html_content
-        else:
-            assert plaintext_content  # Needed for mypy. Ensured by the validating block above.
-            return plaintext_content
+        assert plaintext_content  # Needed for mypy. Ensured by the validating block above.
+        return plaintext_content
 
 
 talon_initialized = False
@@ -332,8 +325,7 @@ def extract_and_upload_attachments(message: EmailMessage, realm: Realm) -> str:
     attachment_links = []
     for part in message.walk():
         content_type = part.get_content_type()
-        filename = part.get_filename()
-        if filename:
+        if filename := part.get_filename():
             attachment = part.get_payload(decode=True)
             if isinstance(attachment, bytes):
                 s3_url = upload_message_file(
@@ -362,7 +354,7 @@ def decode_stream_email_address(email: str) -> Tuple[Stream, Dict[str, bool]]:
     try:
         stream = Stream.objects.get(email_token=token)
     except Stream.DoesNotExist:
-        raise ZulipEmailForwardError("Bad stream token from email recipient " + email)
+        raise ZulipEmailForwardError(f"Bad stream token from email recipient {email}")
 
     return stream, options
 
@@ -481,11 +473,7 @@ def process_message(message: EmailMessage, rcpt_to: Optional[str] = None) -> Non
     to: Optional[str] = None
 
     try:
-        if rcpt_to is not None:
-            to = rcpt_to
-        else:
-            to = find_emailgateway_recipient(message)
-
+        to = rcpt_to if rcpt_to is not None else find_emailgateway_recipient(message)
         if is_missed_message_address(to):
             process_missed_message(to, message)
         else:

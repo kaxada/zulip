@@ -16,13 +16,21 @@ TEST_DROPLET_SUBDOMAIN = "do"
 
 def generate_ssh_keys() -> None:
     subprocess.call(
-        ["ssh-keygen", "-f", str(Path.home()) + "/.ssh/id_ed25519", "-P", "", "-t", "ed25519"]
+        [
+            "ssh-keygen",
+            "-f",
+            f"{str(Path.home())}/.ssh/id_ed25519",
+            "-P",
+            "",
+            "-t",
+            "ed25519",
+        ]
     )
 
 
 def get_public_ssh_key() -> str:
     try:
-        with open(str(Path.home()) + "/.ssh/id_ed25519.pub") as f:
+        with open(f"{str(Path.home())}/.ssh/id_ed25519.pub") as f:
             return f.read()
     except FileNotFoundError:
         return ""

@@ -83,7 +83,7 @@ class SlackBotEmail:
         if email in cls.duplicate_email_count:
             cls.duplicate_email_count[email] += 1
             email_prefix, email_suffix = email.split("@")
-            email_prefix += "-" + str(cls.duplicate_email_count[email])
+            email_prefix += f"-{str(cls.duplicate_email_count[email])}"
             email = "@".join([email_prefix, email_suffix])
         else:
             cls.duplicate_email_count[email] = 1
@@ -221,7 +221,7 @@ def users_to_zerver_userprofile(
 
     # The user data we get from the Slack API does not contain custom profile data
     # Hence we get it from the Slack zip file
-    slack_data_file_user_list = get_data_file(slack_data_dir + "/users.json")
+    slack_data_file_user_list = get_data_file(f"{slack_data_dir}/users.json")
 
     slack_user_id_to_custom_profile_fields: ZerverFieldsT = {}
     slack_custom_field_name_to_zulip_custom_field_id: ZerverFieldsT = {}
@@ -400,7 +400,7 @@ def get_user_email(user: ZerverFieldsT, domain_name: str) -> str:
     if "email" in user["profile"]:
         return user["profile"]["email"]
     if user["is_mirror_dummy"]:
-        return "{}@{}.slack.com".format(user["name"], user["team_domain"])
+        return f'{user["name"]}@{user["team_domain"]}.slack.com'
     if "bot_id" in user["profile"]:
         return SlackBotEmail.get_email(user["profile"], domain_name)
     if get_user_full_name(user).lower() == "slackbot":
@@ -409,8 +409,7 @@ def get_user_email(user: ZerverFieldsT, domain_name: str) -> str:
 
 
 def build_avatar_url(slack_user_id: str, team_id: str, avatar_hash: str) -> str:
-    avatar_url = f"https://ca.slack-edge.com/{team_id}-{slack_user_id}-{avatar_hash}"
-    return avatar_url
+    return f"https://ca.slack-edge.com/{team_id}-{slack_user_id}-{avatar_hash}"
 
 
 def get_owner(user: ZerverFieldsT) -> bool:
@@ -421,8 +420,7 @@ def get_owner(user: ZerverFieldsT) -> bool:
 
 
 def get_admin(user: ZerverFieldsT) -> bool:
-    admin = user.get("is_admin", False)
-    return admin
+    return user.get("is_admin", False)
 
 
 def get_guest(user: ZerverFieldsT) -> bool:
@@ -541,11 +539,11 @@ def channels_to_zerver_stream(
             #         }
             #         ],
 
-    public_channels = get_data_file(slack_data_dir + "/channels.json")
+    public_channels = get_data_file(f"{slack_data_dir}/channels.json")
     process_channels(public_channels)
 
     try:
-        private_channels = get_data_file(slack_data_dir + "/groups.json")
+        private_channels = get_data_file(f"{slack_data_dir}/groups.json")
     except FileNotFoundError:
         private_channels = []
     process_channels(private_channels, True)
@@ -579,7 +577,7 @@ def channels_to_zerver_stream(
             logging.info("%s -> created", mpim["name"])
 
     try:
-        mpims = get_data_file(slack_data_dir + "/mpims.json")
+        mpims = get_data_file(f"{slack_data_dir}/mpims.json")
     except FileNotFoundError:
         mpims = []
     process_mpims(mpims)
@@ -600,7 +598,7 @@ def channels_to_zerver_stream(
             dm_members[dm["id"]] = (user_a, user_b)
 
     try:
-        dms = get_data_file(slack_data_dir + "/dms.json")
+        dms = get_data_file(f"{slack_data_dir}/dms.json")
     except FileNotFoundError:
         dms = []
     process_dms(dms)
@@ -668,14 +666,11 @@ def process_long_term_idle_users(
         if count > 10:
             recent_senders.add(slack_sender_id)
 
-    long_term_idle = set()
-
-    for slack_user in users:
-        if slack_user["id"] in recent_senders:
-            continue
-        zulip_user_id = slack_user_id_to_zulip_user_id[slack_user["id"]]
-        long_term_idle.add(zulip_user_id)
-
+    long_term_idle = {
+        slack_user_id_to_zulip_user_id[slack_user["id"]]
+        for slack_user in users
+        if slack_user["id"] not in recent_senders
+    }
     for user_profile_row in zerver_userprofile:
         if user_profile_row["id"] in long_term_idle:
             user_profile_row["long_term_idle"] = True
@@ -741,7 +736,7 @@ def convert_slack_workspace_messages(
             message_data.append(msg)
             if _counter == chunk_size:
                 break
-        if len(message_data) == 0:
+        if not message_data:
             break
 
         (
@@ -1040,8 +1035,7 @@ def process_message_files(
         if "files.slack.com" in url:
             # For attachments with Slack download link
             has_attachment = True
-            has_link = True
-            has_image = True if "image" in fileinfo["mimetype"] else False
+            has_image = "image" in fileinfo["mimetype"]
 
             file_user = [
                 iterate_user for iterate_user in users if message["user"] == iterate_user["id"]
@@ -1069,15 +1063,9 @@ def process_message_files(
                 zerver_attachment,
             )
         else:
-            # For attachments with link not from Slack
-            # Example: Google drive integration
-            has_link = True
-            if "title" in fileinfo:
-                file_name = fileinfo["title"]
-            else:
-                file_name = fileinfo["name"]
-            markdown_links.append("[{}]({})".format(file_name, fileinfo["url_private"]))
-
+            file_name = fileinfo["title"] if "title" in fileinfo else fileinfo["name"]
+            markdown_links.append(f"[{file_name}]({url})")
+        has_link = True
     content = "\n".join(markdown_links)
 
     return dict(
@@ -1100,7 +1088,7 @@ def get_attachment_path_and_content(fileinfo: ZerverFieldsT, realm_id: int) -> T
         ]
     )
     attachment_path = f"/user_uploads/{s3_path}"
-    content = "[{}]({})".format(fileinfo["title"], attachment_path)
+    content = f'[{fileinfo["title"]}]({attachment_path})'
 
     return s3_path, content
 
@@ -1112,10 +1100,10 @@ def build_reactions(
     message_id: int,
     zerver_realmemoji: List[ZerverFieldsT],
 ) -> None:
-    realmemoji = {}
-    for realm_emoji in zerver_realmemoji:
-        realmemoji[realm_emoji["name"]] = realm_emoji["id"]
-
+    realmemoji = {
+        realm_emoji["name"]: realm_emoji["id"]
+        for realm_emoji in zerver_realmemoji
+    }
     # For the Unicode emoji codes, we use equivalent of
     # function 'emoji_name_to_emoji_code' in 'zerver/lib/emoji' here
     for slack_reaction in reactions:
@@ -1169,9 +1157,7 @@ def build_uploads(
 def get_message_sending_user(message: ZerverFieldsT) -> Optional[str]:
     if "user" in message:
         return message["user"]
-    if message.get("file"):
-        return message["file"].get("user")
-    return None
+    return message["file"].get("user") if message.get("file") else None
 
 
 def fetch_shared_channel_users(
@@ -1185,9 +1171,9 @@ def fetch_shared_channel_users(
         user["is_mirror_dummy"] = False
         normal_user_ids.add(user["id"])
 
-    public_channels = get_data_file(slack_data_dir + "/channels.json")
+    public_channels = get_data_file(f"{slack_data_dir}/channels.json")
     try:
-        private_channels = get_data_file(slack_data_dir + "/groups.json")
+        private_channels = get_data_file(f"{slack_data_dir}/groups.json")
     except FileNotFoundError:
         private_channels = []
     for channel in public_channels + private_channels:
@@ -1223,8 +1209,6 @@ def fetch_shared_channel_users(
 def fetch_team_icons(
     zerver_realm: Dict[str, Any], team_info_dict: Dict[str, Any], output_dir: str
 ) -> List[Dict[str, Any]]:
-    records = []
-
     team_icons_dict = team_info_dict["icon"]
     if "image_default" in team_icons_dict and team_icons_dict["image_default"]:
         return []
@@ -1247,14 +1231,13 @@ def fetch_team_icons(
     original_icon_output_path = os.path.join(output_dir, str(realm_id), "icon.original")
     with open(original_icon_output_path, "wb") as output_file:
         shutil.copyfileobj(response_raw, output_file)
-    records.append(
+    records = [
         {
             "realm_id": realm_id,
             "path": os.path.join(str(realm_id), "icon.original"),
             "s3_path": os.path.join(str(realm_id), "icon.original"),
         }
-    )
-
+    ]
     resized_icon_output_path = os.path.join(output_dir, str(realm_id), "icon.png")
     with open(resized_icon_output_path, "wb") as output_file:
         with open(original_icon_output_path, "rb") as original_file:
@@ -1371,7 +1354,9 @@ def do_convert_data(original_path: str, output_dir: str, token: str, threads: in
     # Clean up the directory if we unpacked it ourselves.
     if original_path != slack_data_dir:
         rm_tree(slack_data_dir)
-    subprocess.check_call(["tar", "-czf", output_dir + ".tar.gz", output_dir, "-P"])
+    subprocess.check_call(
+        ["tar", "-czf", f"{output_dir}.tar.gz", output_dir, "-P"]
+    )
 
     logging.info("######### DATA CONVERSION FINISHED #########\n")
     logging.info("Zulip data dump created at %s", output_dir)
@@ -1379,8 +1364,7 @@ def do_convert_data(original_path: str, output_dir: str, token: str, threads: in
 
 def get_data_file(path: str) -> Any:
     with open(path, "rb") as fp:
-        data = orjson.loads(fp.read())
-        return data
+        return orjson.loads(fp.read())
 
 
 def check_token_access(token: str) -> None:
@@ -1394,12 +1378,9 @@ def check_token_access(token: str) -> None:
             raise ValueError(f"Invalid Slack token: {token}")
         has_scopes = set(data.headers.get("x-oauth-scopes", "").split(","))
         required_scopes = {"emoji:read", "users:read", "users:read.email", "team:read"}
-        missing_scopes = required_scopes - has_scopes
-        if missing_scopes:
+        if missing_scopes := required_scopes - has_scopes:
             raise ValueError(
-                "Slack token is missing the following required scopes: {}".format(
-                    sorted(missing_scopes)
-                )
+                f"Slack token is missing the following required scopes: {sorted(missing_scopes)}"
             )
     else:
         raise Exception("Unknown token type -- must start with xoxb- or xoxp-")
@@ -1414,7 +1395,7 @@ def get_slack_api_data(slack_api_url: str, get_param: str, **kwargs: Any) -> Any
     if data.status_code == requests.codes.ok:
         result = data.json()
         if not result["ok"]:
-            raise Exception("Error accessing Slack API: {}".format(result["error"]))
+            raise Exception(f'Error accessing Slack API: {result["error"]}')
         return result[get_param]
 
     raise Exception("HTTP error accessing the Slack API.")

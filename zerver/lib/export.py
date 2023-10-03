@@ -510,11 +510,7 @@ class Config:
                     """
                 )
 
-        if normal_parent is not None:
-            self.parent: Optional[Config] = normal_parent
-        else:
-            self.parent = None
-
+        self.parent = normal_parent if normal_parent is not None else None
         if virtual_parent is not None and normal_parent is not None:
             raise AssertionError(
                 """
@@ -1101,15 +1097,13 @@ def custom_fetch_huddle_objects(response: TableData, context: Context) -> None:
     )
     realm_huddle_recipient_ids = {sub.recipient_id for sub in realm_huddle_subs}
 
-    # Mark all Huddles whose recipient ID contains a cross-realm user.
-    unsafe_huddle_recipient_ids = set()
-    for sub in Subscription.objects.select_related().filter(
-        recipient__in=realm_huddle_recipient_ids
-    ):
-        if sub.user_profile.realm != realm:
-            # In almost every case the other realm will be zulip.com
-            unsafe_huddle_recipient_ids.add(sub.recipient_id)
-
+    unsafe_huddle_recipient_ids = {
+        sub.recipient_id
+        for sub in Subscription.objects.select_related().filter(
+            recipient__in=realm_huddle_recipient_ids
+        )
+        if sub.user_profile.realm != realm
+    }
     # Now filter down to just those huddles that are entirely within the realm.
     #
     # This is important for ensuring that the User objects needed
@@ -1302,7 +1296,7 @@ def export_partial_message_files(
         # We expect our queries to be disjoint, although this assertion
         # isn't strictly necessary if you don't mind a little bit of
         # overhead.
-        assert len(message_ids.intersection(all_message_ids)) == 0
+        assert not message_ids.intersection(all_message_ids)
 
         all_message_ids |= message_ids
 
@@ -1326,9 +1320,7 @@ def write_message_partials(
     user_profile_ids: Set[int],
 ) -> None:
 
-    dump_file_id = 1
-
-    for message_id_chunk in message_id_chunks:
+    for dump_file_id, message_id_chunk in enumerate(message_id_chunks, start=1):
         actual_query = Message.objects.filter(id__in=message_id_chunk).order_by("id")
         message_chunk = make_raw(actual_query)
 
@@ -1338,8 +1330,7 @@ def write_message_partials(
         logging.info("Fetched messages for %s", message_filename)
 
         # Clean up our messages.
-        table_data: TableData = {}
-        table_data["zerver_message"] = message_chunk
+        table_data: TableData = {"zerver_message": message_chunk}
         floatify_datetime_fields(table_data, "zerver_message")
 
         # Build up our output for the .partial file, which needs
@@ -1353,7 +1344,6 @@ def write_message_partials(
 
         # And write the data.
         write_data_to_file(message_filename, output)
-        dump_file_id += 1
 
 
 def export_uploads_and_avatars(
@@ -1437,7 +1427,7 @@ def export_uploads_and_avatars(
         for user_id in user_ids:
             avatar_path = user_avatar_path_from_ids(user_id, realm.id)
             avatar_hash_values.add(avatar_path)
-            avatar_hash_values.add(avatar_path + ".original")
+            avatar_hash_values.add(f"{avatar_path}.original")
 
         export_files_from_s3(
             realm,
@@ -1503,13 +1493,6 @@ def _get_exported_s3_record(
         # A few early avatars don't have 'realm_id' on the object; fix their metadata
         if "realm_id" not in record:
             record["realm_id"] = user_profile.realm_id
-    else:
-        # There are some rare cases in which 'user_profile_id' may not be present
-        # in S3 metadata. Eg: Exporting an organization which was created
-        # initially from a local export won't have the "user_profile_id" metadata
-        # set for realm_icons and realm_logos.
-        pass
-
     if "realm_id" in record:
         record["realm_id"] = int(record["realm_id"])
     else:
@@ -1524,14 +1507,11 @@ def _save_s3_object_to_file(
     processing_uploads: bool,
 ) -> None:
     # Helper function for export_files_from_s3
-    if not processing_uploads:
-        filename = os.path.join(output_dir, key.key)
-    else:
+    if processing_uploads:
         fields = key.key.split("/")
         if len(fields) != 3:
             raise AssertionError(f"Suspicious key with invalid format {key.key}")
-        filename = os.path.join(output_dir, key.key)
-
+    filename = os.path.join(output_dir, key.key)
     if "../" in filename:
         raise AssertionError(f"Suspicious file with invalid format {filename}")
 
@@ -1622,9 +1602,8 @@ def export_uploads_from_local(
     realm: Realm, local_dir: Path, output_dir: Path, attachments: List[Attachment]
 ) -> None:
 
-    count = 0
     records = []
-    for attachment in attachments:
+    for count, attachment in enumerate(attachments, start=1):
         # Use 'mark_sanitized' to work around false positive caused by Pysa
         # thinking that 'realm' (and thus 'attachment' and 'attachment.path_id')
         # are user controlled
@@ -1647,8 +1626,6 @@ def export_uploads_from_local(
             content_type=None,
         )
         records.append(record)
-
-        count += 1
 
         if count % 100 == 0:
             logging.info("Finished %s", count)
@@ -1680,7 +1657,7 @@ def export_avatars_from_local(
             continue
 
         avatar_path = user_avatar_path_from_ids(user.id, realm.id)
-        wildcard = os.path.join(local_dir, avatar_path + ".*")
+        wildcard = os.path.join(local_dir, f"{avatar_path}.*")
 
         for local_path in glob.glob(wildcard):
             logging.info(
@@ -1740,9 +1717,8 @@ def export_emoji_from_local(
     realm: Realm, local_dir: Path, output_dir: Path, realm_emojis: List[RealmEmoji]
 ) -> None:
 
-    count = 0
     records = []
-    for realm_emoji in realm_emojis:
+    for count, realm_emoji in enumerate(realm_emojis, start=1):
         emoji_path = get_emoji_path(realm_emoji)
 
         # Use 'mark_sanitized' to work around false positive caused by Pysa
@@ -1771,7 +1747,6 @@ def export_emoji_from_local(
         )
         records.append(record)
 
-        count += 1
         if count % 100 == 0:
             logging.info("Finished %s", count)
 
@@ -2081,7 +2056,7 @@ def get_id_list_gently_from_database(*, base_query: Any, id_field: str) -> List[
             .filter(**filter_args)
             .order_by(id_field)[:batch_size]
         )
-        if len(new_ids) == 0:
+        if not new_ids:
             break
         all_ids += new_ids
         min_id = new_ids[-1]
@@ -2097,9 +2072,8 @@ def chunkify(lst: List[int], chunk_size: int) -> List[List[int]]:
         chunk = lst[i : i + chunk_size]
         if len(chunk) == 0:
             break
-        else:
-            result.append(chunk)
-            i += chunk_size
+        result.append(chunk)
+        i += chunk_size
 
     return result
 

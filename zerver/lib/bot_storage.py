@@ -27,13 +27,12 @@ def get_bot_storage_size(bot_profile: UserProfile, key: Optional[str] = None) ->
             .aggregate(sum=Sum(F("key_size") + F("value_size")))["sum"]
             or 0
         )
-    else:
-        try:
-            return len(key) + len(
-                BotStorageData.objects.get(bot_profile=bot_profile, key=key).value
-            )
-        except BotStorageData.DoesNotExist:
-            return 0
+    try:
+        return len(key) + len(
+            BotStorageData.objects.get(bot_profile=bot_profile, key=key).value
+        )
+    except BotStorageData.DoesNotExist:
+        return 0
 
 
 def set_bot_storage(bot_profile: UserProfile, entries: List[Tuple[str, str]]) -> None:
@@ -46,15 +45,12 @@ def set_bot_storage(bot_profile: UserProfile, entries: List[Tuple[str, str]]) ->
     new_storage_size = get_bot_storage_size(bot_profile) + storage_size_difference
     if new_storage_size > storage_size_limit:
         raise StateError(
-            "Request exceeds storage limit by {} characters. The limit is {} characters.".format(
-                new_storage_size - storage_size_limit, storage_size_limit
-            )
+            f"Request exceeds storage limit by {new_storage_size - storage_size_limit} characters. The limit is {storage_size_limit} characters."
         )
-    else:
-        for key, value in entries:
-            BotStorageData.objects.update_or_create(
-                bot_profile=bot_profile, key=key, defaults={"value": value}
-            )
+    for key, value in entries:
+        BotStorageData.objects.update_or_create(
+            bot_profile=bot_profile, key=key, defaults={"value": value}
+        )
 
 
 def remove_bot_storage(bot_profile: UserProfile, keys: List[str]) -> None:

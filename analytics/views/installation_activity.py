@@ -357,7 +357,7 @@ def user_activity_intervals() -> Tuple[mark_safe, Dict[str, float]]:
     output += f"\nTotal duration:                      {total_duration}\n"
     output += f"\nTotal duration in minutes:           {total_duration.total_seconds() / 60.}\n"
     output += f"Total duration amortized to a month: {total_duration.total_seconds() * 30. / 60.}"
-    content = mark_safe("<pre>" + output + "</pre>")
+    content = mark_safe(f"<pre>{output}</pre>")
     return content, realm_minutes
 
 
@@ -610,9 +610,7 @@ def get_installation_activity(request: HttpRequest) -> HttpResponse:
         ("Counts", counts_content),
         ("Durations", duration_content),
     ]
-    for page in ad_hoc_queries():
-        data.append((page["title"], page["content"]))
-
+    data.extend((page["title"], page["content"]) for page in ad_hoc_queries())
     title = "Activity"
 
     return render(

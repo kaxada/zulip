@@ -231,22 +231,22 @@ def generate_sprite_css_files(
 
 def setup_emoji_farms(cache_path: str, emoji_data: List[Dict[str, Any]]) -> None:
     def ensure_emoji_image(
-        emoji_dict: Dict[str, Any], src_emoji_farm: str, target_emoji_farm: str
-    ) -> None:
+            emoji_dict: Dict[str, Any], src_emoji_farm: str, target_emoji_farm: str
+        ) -> None:
         # We use individual images from emoji farm for rendering emojis
         # in notification messages. We have a custom emoji formatter in
         # notifications processing code that converts `span` tags to
         # `img` and that logic requires us to have non-qualified
         # `emoji_code` as file name for emoji.
         emoji_code = get_emoji_code(emoji_dict)
-        img_file_name = emoji_code + ".png"
+        img_file_name = f"{emoji_code}.png"
         src_file = os.path.join(src_emoji_farm, emoji_dict["image"])
         dst_file = os.path.join(target_emoji_farm, img_file_name)
         shutil.copy2(src_file, dst_file)
 
     def setup_emoji_farm(
-        emojiset: str, emoji_data: List[Dict[str, Any]], alt_name: Optional[str] = None
-    ) -> None:
+            emojiset: str, emoji_data: List[Dict[str, Any]], alt_name: Optional[str] = None
+        ) -> None:
         # `alt_name` is an optional parameter that we use to avoid duplicating below
         # code. It is only used while setting up google-blob emoji set as it is just
         # a wrapper for an older version of emoji-datasource package due to which we
@@ -256,17 +256,21 @@ def setup_emoji_farms(cache_path: str, emoji_data: List[Dict[str, Any]]) -> None
 
         # Copy individual emoji images from npm packages.
         src_emoji_farm = os.path.join(
-            NODE_MODULES_PATH, "emoji-datasource-" + emojiset, "img", alt_name, "64"
+            NODE_MODULES_PATH,
+            f"emoji-datasource-{emojiset}",
+            "img",
+            alt_name,
+            "64",
         )
-        target_emoji_farm = os.path.join(cache_path, "images-" + emojiset + "-64")
+        target_emoji_farm = os.path.join(cache_path, f"images-{emojiset}-64")
         os.makedirs(target_emoji_farm, exist_ok=True)
         print("Copying individual image files...")
         for emoji_dict in emoji_data:
-            if emoji_dict["has_img_" + alt_name]:
+            if emoji_dict[f"has_img_{alt_name}"]:
                 ensure_emoji_image(emoji_dict, src_emoji_farm, target_emoji_farm)
                 skin_variations = emoji_dict.get("skin_variations", {})
                 for img_info in skin_variations.values():
-                    if img_info["has_img_" + alt_name]:
+                    if img_info[f"has_img_{alt_name}"]:
                         ensure_emoji_image(img_info, src_emoji_farm, target_emoji_farm)
 
         # Copy zulip.png to the emoji farm.
@@ -277,7 +281,9 @@ def setup_emoji_farms(cache_path: str, emoji_data: List[Dict[str, Any]]) -> None
         # We hardcode octopus emoji image to Google emoji set's old
         # "cute octopus" image. Copy it to the emoji farms.
         input_img_file = os.path.join(EMOJI_SCRIPT_DIR_PATH, "1f419.png")
-        output_img_file = os.path.join(cache_path, "images-" + emojiset + "-64", "1f419.png")
+        output_img_file = os.path.join(
+            cache_path, f"images-{emojiset}-64", "1f419.png"
+        )
         shutil.copyfile(input_img_file, output_img_file)
 
         generate_sprite_css_files(cache_path, emoji_data, emojiset, alt_name)

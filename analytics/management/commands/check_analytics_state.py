@@ -30,7 +30,7 @@ class Command(BaseCommand):
         message = fill_state["message"]
 
         state_file_path = "/var/lib/nagios_state/check-analytics-state"
-        state_file_tmp = state_file_path + "-tmp"
+        state_file_tmp = f"{state_file_path}-tmp"
 
         with open(state_file_tmp, "w") as f:
             f.write(f"{int(time.time())}|{status}|{states[status]}|{message}\n")
@@ -72,19 +72,14 @@ class Command(BaseCommand):
             elif time_to_last_fill > warning_threshold:
                 warning_unfilled_properties.append(property)
 
-        if len(critical_unfilled_properties) == 0 and len(warning_unfilled_properties) == 0:
-            return {"status": 0, "message": "FillState looks fine."}
-        if len(critical_unfilled_properties) == 0:
+        if not critical_unfilled_properties:
+            if not warning_unfilled_properties:
+                return {"status": 0, "message": "FillState looks fine."}
             return {
                 "status": 1,
-                "message": "Missed filling {} once.".format(
-                    ", ".join(warning_unfilled_properties),
-                ),
+                "message": f'Missed filling {", ".join(warning_unfilled_properties)} once.',
             }
         return {
             "status": 2,
-            "message": "Missed filling {} once. Missed filling {} at least twice.".format(
-                ", ".join(warning_unfilled_properties),
-                ", ".join(critical_unfilled_properties),
-            ),
+            "message": f'Missed filling {", ".join(warning_unfilled_properties)} once. Missed filling {", ".join(critical_unfilled_properties)} at least twice.',
         }

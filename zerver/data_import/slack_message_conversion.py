@@ -89,7 +89,7 @@ def convert_to_zulip_markdown(
     # Map Slack channel mention: '<#C5Z73A7RA|general>' to '#**general**'
     for cname, ids in added_channels.items():
         cid = ids[0]
-        text = text.replace(f"<#{cid}|{cname}>", "#**" + cname + "**")
+        text = text.replace(f"<#{cid}|{cname}>", f"#**{cname}**")
 
     tokens = text.split(" ")
     for iterator in range(len(tokens)):
@@ -110,11 +110,7 @@ def convert_to_zulip_markdown(
     # convert `<mailto:foo@foo.com>` to `mailto:foo@foo.com`
     text, has_mailto_link = convert_mailto_format(text)
 
-    if has_link is True or has_mailto_link is True:
-        message_has_link = True
-    else:
-        message_has_link = False
-
+    message_has_link = has_link is True or has_mailto_link is True
     return text, mentioned_users_id, message_has_link
 
 
@@ -131,7 +127,7 @@ def get_user_mentions(
         ):
             full_name = get_user_full_name(user)
             user_id = slack_user_id_to_zulip_user_id[slack_id]
-            mention = "@**" + full_name + "**"
+            mention = f"@**{full_name}**"
             token = re.sub(SLACK_USERMENTION_REGEX, mention, token, flags=re.VERBOSE)
             return token, user_id
     return token, None

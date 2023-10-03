@@ -53,7 +53,7 @@ EMOTICON_CONVERSIONS = {
 
 def emoji_names_for_picker(emoji_name_maps: Dict[str, Dict[str, Any]]) -> List[str]:
     emoji_names: List[str] = []
-    for emoji_code, name_info in emoji_name_maps.items():
+    for name_info in emoji_name_maps.values():
         emoji_names.append(name_info["canonical_name"])
         emoji_names.extend(name_info["aliases"])
 
@@ -103,16 +103,14 @@ def generate_emoji_catalog(
 # Use only those names for which images are present in all
 # the emoji sets so that we can switch emoji sets seamlessly.
 def emoji_is_universal(emoji_dict: Dict[str, Any]) -> bool:
-    for emoji_set in EMOJISETS:
-        if not emoji_dict["has_img_" + emoji_set]:
-            return False
-    return True
+    return all(emoji_dict[f"has_img_{emoji_set}"] for emoji_set in EMOJISETS)
 
 
 def generate_codepoint_to_name_map(emoji_name_maps: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
-    codepoint_to_name: Dict[str, str] = {}
-    for emoji_code, name_info in emoji_name_maps.items():
-        codepoint_to_name[emoji_code] = name_info["canonical_name"]
+    codepoint_to_name: Dict[str, str] = {
+        emoji_code: name_info["canonical_name"]
+        for emoji_code, name_info in emoji_name_maps.items()
+    }
     return codepoint_to_name
 
 

@@ -14,8 +14,7 @@ def expand_reqs_helper(fpath: str) -> List[str]:
         for line in f:
             if line.strip().startswith(("#", "--hash")):
                 continue
-            dep = line.split(" \\", 1)[0].strip()
-            if dep:
+            if dep := line.split(" \\", 1)[0].strip():
                 result.append(dep)
     return result
 

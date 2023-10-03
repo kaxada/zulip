@@ -17,10 +17,10 @@ class ConfigError(Exception):
 
 
 def get_bot_config(bot_profile: UserProfile) -> Dict[str, str]:
-    entries = BotConfigData.objects.filter(bot_profile=bot_profile)
-    if not entries:
+    if entries := BotConfigData.objects.filter(bot_profile=bot_profile):
+        return {entry.key: entry.value for entry in entries}
+    else:
         raise ConfigError("No config data available.")
-    return {entry.key: entry.value for entry in entries}
 
 
 def get_bot_configs(bot_profile_ids: List[int]) -> Dict[int, Dict[str, str]]:
@@ -41,11 +41,10 @@ def get_bot_config_size(bot_profile: UserProfile, key: Optional[str] = None) -> 
             .aggregate(sum=Sum(F("key_size") + F("value_size")))["sum"]
             or 0
         )
-    else:
-        try:
-            return len(key) + len(BotConfigData.objects.get(bot_profile=bot_profile, key=key).value)
-        except BotConfigData.DoesNotExist:
-            return 0
+    try:
+        return len(key) + len(BotConfigData.objects.get(bot_profile=bot_profile, key=key).value)
+    except BotConfigData.DoesNotExist:
+        return 0
 
 
 def set_bot_config(bot_profile: UserProfile, key: str, value: str) -> None:
@@ -56,10 +55,7 @@ def set_bot_config(bot_profile: UserProfile, key: str, value: str) -> None:
     new_config_size = old_config_size + (new_entry_size - old_entry_size)
     if new_config_size > config_size_limit:
         raise ConfigError(
-            "Cannot store configuration. Request would require {} characters. "
-            "The current configuration size limit is {} characters.".format(
-                new_config_size, config_size_limit
-            )
+            f"Cannot store configuration. Request would require {new_config_size} characters. The current configuration size limit is {config_size_limit} characters."
         )
     obj, created = BotConfigData.objects.get_or_create(
         bot_profile=bot_profile, key=key, defaults={"value": value}

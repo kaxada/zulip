@@ -94,16 +94,15 @@ def assert_droplet_does_not_exist(my_token: str, droplet_name: str, recreate: bo
     my_droplets = manager.get_all_droplets()
     for droplet in my_droplets:
         if droplet.name.lower() == droplet_name:
-            if not recreate:
-                print(
-                    "Droplet {} already exists. Pass --recreate if you "
-                    "need to recreate the droplet.".format(droplet_name)
-                )
-                sys.exit(1)
-            else:
+            if recreate:
                 print(f"Deleting existing droplet {droplet_name}.")
                 droplet.destroy()
                 return
+            else:
+                print(
+                    f"Droplet {droplet_name} already exists. Pass --recreate if you need to recreate the droplet."
+                )
+                sys.exit(1)
     print("...No droplet found...proceeding.")
 
 
@@ -224,7 +223,7 @@ def create_dns_record(my_token: str, record_name: str, ip_address: str) -> None:
     records = domain.get_records()
 
     delete_existing_records(records, record_name)
-    wildcard_name = "*." + record_name
+    wildcard_name = f"*.{record_name}"
     delete_existing_records(records, wildcard_name)
 
     print(f"Creating new A record for {record_name}.zulipdev.org that points to {ip_address}.")

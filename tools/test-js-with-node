@@ -250,19 +250,18 @@ def get_dev_host() -> str:
 
     user_id = os.getuid()
     user_name = pwd.getpwuid(user_id).pw_name
-    if user_name == "zulipdev":
-        hostname = os.uname()[1].lower()
-        if ".zulipdev.org" not in hostname:
-            hostname += ".zulipdev.org"
-        return hostname + ":9991"
-    else:
+    if user_name != "zulipdev":
         # For local development environments, we use localhost by
         # default, via the "zulipdev.com" hostname.
         return "zulipdev.com:9991"
+    hostname = os.uname()[1].lower()
+    if ".zulipdev.org" not in hostname:
+        hostname += ".zulipdev.org"
+    return f"{hostname}:9991"
 
 
 def print_error(msg: str) -> None:
-    print(BOLDRED + "ERROR:" + ENDC + " " + msg)
+    print(f"{BOLDRED}ERROR:{ENDC} {msg}")
 
 
 def clean_file(orig_fn: str) -> str:
@@ -279,8 +278,7 @@ def clean_file(orig_fn: str) -> str:
 
 
 def clean_files(fns: List[str]) -> List[str]:
-    cleaned_files = [clean_file(fn) for fn in fns]
-    return cleaned_files
+    return [clean_file(fn) for fn in fns]
 
 
 def run_tests_via_node_js() -> int:
@@ -366,7 +364,9 @@ def read_coverage() -> Any:
         with open(NODE_COVERAGE_PATH, "rb") as f:
             coverage_json = orjson.loads(f.read())
     except OSError:
-        print(NODE_COVERAGE_PATH + " doesn't exist. Cannot enforce fully covered files.")
+        print(
+            f"{NODE_COVERAGE_PATH} doesn't exist. Cannot enforce fully covered files."
+        )
         raise
     return coverage_json
 
@@ -383,8 +383,8 @@ def enforce_proper_coverage(coverage_json: Any) -> bool:
 
     coverage_lost = False
     for relative_path in enforce_fully_covered:
-        path = ROOT_DIR + "/" + relative_path
-        if not (path in coverage_json):
+        path = f"{ROOT_DIR}/{relative_path}"
+        if path not in coverage_json:
             coverage_lost = True
             print_error(f"{relative_path} has no node test coverage")
             continue
@@ -415,8 +415,7 @@ def enforce_proper_coverage(coverage_json: Any) -> bool:
         print("One or more fully covered files are miscategorized.")
         print("Remove the file(s) from EXEMPT_FILES in `tools/test-js-with-node`.")
 
-    problems_encountered = coverage_lost or coverage_not_enforced
-    return problems_encountered
+    return coverage_lost or coverage_not_enforced
 
 
 ret = run_tests_via_node_js()
@@ -424,18 +423,17 @@ ret = run_tests_via_node_js()
 if options.coverage and ret == 0:
     if not individual_files:
         coverage_json = read_coverage()
-        problems_encountered = enforce_proper_coverage(coverage_json)
-        if problems_encountered:
+        if problems_encountered := enforce_proper_coverage(coverage_json):
             ret = 1
 
     reports_location = f"http://{get_dev_host()}/node-coverage/index.html"
     print()
-    print("View coverage reports at " + CYAN + reports_location + ENDC)
+    print(f"View coverage reports at {CYAN}{reports_location}{ENDC}")
 
 print()
 if ret == 0:
-    print(GREEN + "Test(s) passed. SUCCESS!" + ENDC)
+    print(f"{GREEN}Test(s) passed. SUCCESS!{ENDC}")
 else:
-    print(BOLDRED + "FAIL - Test(s) failed" + ENDC)
+    print(f"{BOLDRED}FAIL - Test(s) failed{ENDC}")
 
 sys.exit(ret)

@@ -150,27 +150,22 @@ def from_openapi(node: Dict[str, Any]) -> Any:
         if "properties" not in node:
             return dict
 
-        required_keys = []
-        for key, sub_node in node["properties"].items():
-            required_keys.append((key, from_openapi(sub_node)))
+        required_keys = [
+            (key, from_openapi(sub_node))
+            for key, sub_node in node["properties"].items()
+        ]
         return DictType(required_keys)
 
     if node["type"] == "boolean":
         return bool
 
     if node["type"] == "integer":
-        if "enum" in node:
-            return EnumType(node["enum"])
-        return int
-
+        return EnumType(node["enum"]) if "enum" in node else int
     if node["type"] == "number":
         return NumberType()
 
     if node["type"] == "string":
-        if "enum" in node:
-            return EnumType(node["enum"])
-        return str
-
+        return EnumType(node["enum"]) if "enum" in node else str
     if node["type"] == "array":
         return ListType(from_openapi(node["items"]))
 

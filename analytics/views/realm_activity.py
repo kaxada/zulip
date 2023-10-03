@@ -51,16 +51,10 @@ def realm_user_summary_table(
         user_records[email] = get_user_activity_summary(list(records))
 
     def get_last_visit(user_summary: Dict[str, Dict[str, datetime]], k: str) -> Optional[datetime]:
-        if k in user_summary:
-            return user_summary[k]["last_visit"]
-        else:
-            return None
+        return user_summary[k]["last_visit"] if k in user_summary else None
 
     def get_count(user_summary: Dict[str, Dict[str, str]], k: str) -> str:
-        if k in user_summary:
-            return user_summary[k]["count"]
-        else:
-            return ""
+        return user_summary[k]["count"] if k in user_summary else ""
 
     def is_recent(val: datetime) -> bool:
         age = timezone_now() - val
@@ -154,7 +148,7 @@ def realm_client_table(user_summaries: Dict[str, Dict[str, Any]]) -> str:
 
 
 def sent_messages_report(realm: str) -> str:
-    title = "Recently sent messages for " + realm
+    title = f"Recently sent messages for {realm}"
 
     cols = [
         "Date",

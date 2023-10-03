@@ -22,15 +22,13 @@ def logger_repr(report: Dict[str, Any]) -> str:
 
 
 def user_info_str(report: Dict[str, Any]) -> str:
-    if report.get("user") and report["user"].get("user_full_name"):
-        user_info = "{user[user_full_name]} <{user[user_email]}> ({user[user_role]})".format(
+    return (
+        "{user[user_full_name]} <{user[user_email]}> ({user[user_role]})".format(
             **report
         )
-    else:
-        user_info = "Anonymous user (not logged in)"
-
-    user_info += " on {host} deployment".format(**report)
-    return user_info
+        if report.get("user") and report["user"].get("user_full_name")
+        else "Anonymous user (not logged in)"
+    ) + " on {host} deployment".format(**report)
 
 
 def deployment_repr(report: Dict[str, Any]) -> str:

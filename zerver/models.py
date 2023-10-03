@@ -874,18 +874,12 @@ class Realm(models.Model):
         self._max_invites = value
 
     def upload_quota_bytes(self) -> Optional[int]:
-        if self.upload_quota_gb is None:
-            return None
-        # We describe the quota to users in "GB" or "gigabytes", but actually apply
-        # it as gibibytes (GiB) to be a bit more generous in case of confusion.
-        return self.upload_quota_gb << 30
+        return None if self.upload_quota_gb is None else self.upload_quota_gb << 30
 
     @cache_with_key(get_realm_used_upload_space_cache_key, timeout=3600 * 24 * 7)
     def currently_used_upload_space_bytes(self) -> int:
         used_space = Attachment.objects.filter(realm=self).aggregate(Sum("size"))["size__sum"]
-        if used_space is None:
-            return 0
-        return used_space
+        return 0 if used_space is None else used_space
 
     def ensure_not_on_limited_plan(self) -> None:
         if self.plan_type == Realm.PLAN_TYPE_LIMITED:
@@ -899,9 +893,7 @@ class Realm(models.Model):
     def display_subdomain(self) -> str:
         """Likely to be temporary function to avoid signup messages being sent
         to an empty topic"""
-        if self.string_id == "":
-            return "."
-        return self.string_id
+        return "." if self.string_id == "" else self.string_id
 
     @property
     def uri(self) -> str:
@@ -936,13 +928,7 @@ class Realm(models.Model):
         if self.string_id in settings.WEB_PUBLIC_STREAMS_BETA_SUBDOMAINS:
             return True
 
-        if not settings.WEB_PUBLIC_STREAMS_ENABLED:
-            # To help protect against accidentally web-public streams in
-            # self-hosted servers, we require the feature to be enabled at
-            # the server level before it is available to users.
-            return False
-
-        return True
+        return bool(settings.WEB_PUBLIC_STREAMS_ENABLED)
 
     def web_public_streams_enabled(self) -> bool:
         if not self.web_public_streams_available_for_realm():
@@ -954,10 +940,7 @@ class Realm(models.Model):
             # target every open Internet service that can host files.
             return False
 
-        if not self.enable_spectator_access:
-            return False
-
-        return True
+        return bool(self.enable_spectator_access)
 
     def has_web_public_streams(self) -> bool:
         if not self.web_public_streams_enabled():
@@ -1019,11 +1002,14 @@ def avatar_changes_disabled(realm: Realm) -> bool:
 
 
 def get_org_type_display_name(org_type: int) -> str:
-    for realm_type, realm_type_details in Realm.ORG_TYPES.items():
-        if realm_type_details["id"] == org_type:
-            return realm_type_details["name"]
-
-    return ""
+    return next(
+        (
+            realm_type_details["name"]
+            for realm_type, realm_type_details in Realm.ORG_TYPES.items()
+            if realm_type_details["id"] == org_type
+        ),
+        "",
+    )
 
 
 class RealmDomain(models.Model):
@@ -1158,10 +1144,10 @@ def get_realm_emoji_uncached(realm: Realm) -> Dict[str, EmojiInfo]:
 
 def get_active_realm_emoji_uncached(realm: Realm) -> Dict[str, EmojiInfo]:
     realm_emojis = get_realm_emoji_dicts(realm, only_active_emojis=True)
-    d = {}
-    for emoji_id, emoji_dict in realm_emojis.items():
-        d[emoji_dict["name"]] = emoji_dict
-    return d
+    return {
+        emoji_dict["name"]: emoji_dict
+        for emoji_id, emoji_dict in realm_emojis.items()
+    }
 
 
 def flush_realm_emoji(*, instance: RealmEmoji, **kwargs: object) -> None:
@@ -1314,25 +1300,23 @@ def realm_filters_for_realm(realm_id: int) -> List[Tuple[str, str, int]]:
     which use the `realm_filters` events.
     """
     linkifiers = linkifiers_for_realm(realm_id)
-    realm_filters: List[Tuple[str, str, int]] = []
-    for linkifier in linkifiers:
-        realm_filters.append((linkifier["pattern"], linkifier["url_format"], linkifier["id"]))
+    realm_filters: List[Tuple[str, str, int]] = [
+        (linkifier["pattern"], linkifier["url_format"], linkifier["id"])
+        for linkifier in linkifiers
+    ]
     return realm_filters
 
 
 @cache_with_key(get_linkifiers_cache_key, timeout=3600 * 24 * 7)
 def linkifiers_for_realm_remote_cache(realm_id: int) -> List[LinkifierDict]:
-    linkifiers = []
-    for linkifier in RealmFilter.objects.filter(realm_id=realm_id):
-        linkifiers.append(
-            LinkifierDict(
-                pattern=linkifier.pattern,
-                url_format=linkifier.url_format_string,
-                id=linkifier.id,
-            )
+    return [
+        LinkifierDict(
+            pattern=linkifier.pattern,
+            url_format=linkifier.url_format_string,
+            id=linkifier.id,
         )
-
-    return linkifiers
+        for linkifier in RealmFilter.objects.filter(realm_id=realm_id)
+    ]
 
 
 def flush_linkifiers(*, instance: RealmFilter, **kwargs: object) -> None:
@@ -1390,16 +1374,15 @@ class RealmPlayground(models.Model):
 
 
 def get_realm_playgrounds(realm: Realm) -> List[RealmPlaygroundDict]:
-    playgrounds: List[RealmPlaygroundDict] = []
-    for playground in RealmPlayground.objects.filter(realm=realm).all():
-        playgrounds.append(
-            RealmPlaygroundDict(
-                id=playground.id,
-                name=playground.name,
-                pygments_language=playground.pygments_language,
-                url_prefix=playground.url_prefix,
-            )
+    playgrounds: List[RealmPlaygroundDict] = [
+        RealmPlaygroundDict(
+            id=playground.id,
+            name=playground.name,
+            pygments_language=playground.pygments_language,
+            url_prefix=playground.url_prefix,
         )
+        for playground in RealmPlayground.objects.filter(realm=realm).all()
+    ]
     return playgrounds
 
 
@@ -1848,15 +1831,14 @@ class UserProfile(AbstractBaseUser, PermissionsMixin, UserBaseSettings):
         }
         data: ProfileData = []
         for field in custom_profile_fields_for_realm(self.realm_id):
-            field_values = user_data.get(field.id, None)
-            if field_values:
+            if field_values := user_data.get(field.id, None):
                 value, rendered_value = field_values.get("value"), field_values.get(
                     "rendered_value"
                 )
             else:
                 value, rendered_value = None, None
-            field_type = field.field_type
             if value is not None:
+                field_type = field.field_type
                 converter = field.FIELD_CONVERTERS[field_type]
                 value = converter(value)
 
@@ -1893,16 +1875,14 @@ class UserProfile(AbstractBaseUser, PermissionsMixin, UserBaseSettings):
         if self.is_moderator:
             return False
         diff = (timezone_now() - self.date_joined).days
-        if diff < self.realm.waiting_period_threshold:
-            return True
-        return False
+        return diff < self.realm.waiting_period_threshold
 
     @property
     def is_realm_admin(self) -> bool:
-        return (
-            self.role == UserProfile.ROLE_REALM_ADMINISTRATOR
-            or self.role == UserProfile.ROLE_REALM_OWNER
-        )
+        return self.role in [
+            UserProfile.ROLE_REALM_ADMINISTRATOR,
+            UserProfile.ROLE_REALM_OWNER,
+        ]
 
     @is_realm_admin.setter
     def is_realm_admin(self, value: bool) -> None:
@@ -1965,7 +1945,8 @@ class UserProfile(AbstractBaseUser, PermissionsMixin, UserBaseSettings):
         allowed_bot_types = []
         if (
             self.is_realm_admin
-            or not self.realm.bot_creation_policy == Realm.BOT_CREATION_LIMIT_GENERIC_BOTS
+            or self.realm.bot_creation_policy
+            != Realm.BOT_CREATION_LIMIT_GENERIC_BOTS
         ):
             allowed_bot_types.append(UserProfile.DEFAULT_BOT)
         allowed_bot_types += [
@@ -1979,9 +1960,7 @@ class UserProfile(AbstractBaseUser, PermissionsMixin, UserBaseSettings):
     def email_address_is_realm_public(self) -> bool:
         if self.realm.email_address_visibility == Realm.EMAIL_ADDRESS_VISIBILITY_EVERYONE:
             return True
-        if self.is_bot:
-            return True
-        return False
+        return bool(self.is_bot)
 
     def has_permission(self, policy_name: str) -> bool:
         if policy_name not in [
@@ -2068,13 +2047,10 @@ class UserProfile(AbstractBaseUser, PermissionsMixin, UserBaseSettings):
         return not (self.is_guest or self.realm.is_zephyr_mirror_realm)
 
     def major_tos_version(self) -> int:
-        if self.tos_version is not None:
-            return int(self.tos_version.split(".")[0])
-        else:
-            return -1
+        return -1 if self.tos_version is None else int(self.tos_version.split(".")[0])
 
     def format_requestor_for_logs(self) -> str:
-        return "{}@{}".format(self.id, self.realm.string_id or "root")
+        return f'{self.id}@{self.realm.string_id or "root"}'
 
     def set_password(self, password: Optional[str]) -> None:
         if password is None:
@@ -2169,7 +2145,7 @@ class GroupGroupMembership(models.Model):
 
 def remote_user_to_email(remote_user: str) -> str:
     if settings.SSO_APPEND_DOMAIN is not None:
-        remote_user += "@" + settings.SSO_APPEND_DOMAIN
+        remote_user += f"@{settings.SSO_APPEND_DOMAIN}"
     return remote_user
 
 
@@ -2251,13 +2227,12 @@ def filter_to_valid_prereg_users(
         return query
 
     assert invite_expires_in_days is not None
-    if not isinstance(invite_expires_in_days, UnspecifiedValue):
-        lowest_datetime = timezone_now() - datetime.timedelta(days=invite_expires_in_days)
-        return query.filter(invited_at__gte=lowest_datetime)
-    else:
+    if isinstance(invite_expires_in_days, UnspecifiedValue):
         return query.filter(
             Q(confirmation__expiry_date=None) | Q(confirmation__expiry_date__gte=timezone_now())
         )
+    lowest_datetime = timezone_now() - datetime.timedelta(days=invite_expires_in_days)
+    return query.filter(invited_at__gte=lowest_datetime)
 
 
 class MultiuseInvite(models.Model):
@@ -2717,14 +2692,14 @@ def bulk_get_huddle_user_ids(recipients: List[Recipient]) -> Dict[int, List[int]
         recipient__in=recipients,
     ).order_by("user_profile_id")
 
-    result_dict: Dict[int, List[int]] = {}
-    for recipient in recipients:
-        result_dict[recipient.id] = [
+    result_dict: Dict[int, List[int]] = {
+        recipient.id: [
             subscription.user_profile_id
             for subscription in subscriptions
             if subscription.recipient_id == recipient.id
         ]
-
+        for recipient in recipients
+    }
     return result_dict
 
 
@@ -2877,9 +2852,7 @@ class Message(AbstractMessage):
         "status messages" start with /me and have special rendering:
             /me loves chocolate -> Full Name loves chocolate
         """
-        if content.startswith("/me "):
-            return True
-        return False
+        return bool(content.startswith("/me "))
 
     class Meta:
         indexes = [
@@ -2979,7 +2952,7 @@ class Draft(models.Model):
                 to = []
                 for r in get_display_recipient(self.recipient):
                     assert not isinstance(r, str)  # It will only be a string for streams
-                    if not r["id"] == self.user_profile_id:
+                    if r["id"] != self.user_profile_id:
                         to.append(r["id"])
         return {
             "id": self.id,
@@ -3471,8 +3444,9 @@ def validate_attachment_request(
 def get_old_unclaimed_attachments(weeks_ago: int) -> Sequence[Attachment]:
     # TODO: Change return type to QuerySet[Attachment]
     delta_weeks_ago = timezone_now() - datetime.timedelta(weeks=weeks_ago)
-    old_attachments = Attachment.objects.filter(messages=None, create_time__lt=delta_weeks_ago)
-    return old_attachments
+    return Attachment.objects.filter(
+        messages=None, create_time__lt=delta_weeks_ago
+    )
 
 
 class Subscription(models.Model):
@@ -3923,13 +3897,11 @@ class UserPresence(models.Model):
     def status_from_string(status: str) -> Optional[int]:
         if status == "active":
             # See https://github.com/python/mypy/issues/2611
-            status_val: Optional[int] = UserPresence.ACTIVE
+            return UserPresence.ACTIVE
         elif status == "idle":
-            status_val = UserPresence.IDLE
+            return UserPresence.IDLE
         else:
-            status_val = None
-
-        return status_val
+            return None
 
 
 class UserStatus(AbstractEmoji):
@@ -4416,9 +4388,10 @@ class CustomProfileField(models.Model):
         }
 
     def is_renderable(self) -> bool:
-        if self.field_type in [CustomProfileField.SHORT_TEXT, CustomProfileField.LONG_TEXT]:
-            return True
-        return False
+        return self.field_type in [
+            CustomProfileField.SHORT_TEXT,
+            CustomProfileField.LONG_TEXT,
+        ]
 
     def __str__(self) -> str:
         return f"<CustomProfileField: {self.realm} {self.name} {self.field_type} {self.order}>"
@@ -4535,7 +4508,7 @@ def get_fake_email_domain(realm: Realm) -> str:
 
     try:
         # Check that the fake email domain can be used to form valid email addresses.
-        validate_email("bot@" + settings.FAKE_EMAIL_DOMAIN)
+        validate_email(f"bot@{settings.FAKE_EMAIL_DOMAIN}")
     except ValidationError:
         raise InvalidFakeEmailDomain(
             settings.FAKE_EMAIL_DOMAIN + " is not a valid domain. "

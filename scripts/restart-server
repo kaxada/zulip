@@ -23,10 +23,8 @@ from scripts.lib.zulip_tools import (
     start_arg_parser,
 )
 
-action = "restart"
-if not sys.argv[0].endswith("restart-server"):
-    action = "start"
-verbing = action.title() + "ing"
+action = "start" if not sys.argv[0].endswith("restart-server") else "restart"
+verbing = f"{action.title()}ing"
 
 logging.Formatter.converter = time.gmtime
 logging.basicConfig(format=f"%(asctime)s {action}-server: %(message)s", level=logging.INFO)
@@ -91,11 +89,9 @@ if has_application_server():
 if has_process_fts_updates():
     workers.append("process-fts-updates")
 
-# Before we start (re)starting main services, make sure to start any
-# optional auxiliary services that we don't stop, but do expect to be
-# running, and aren't currently.
-aux_services = list_supervisor_processes(["go-camo", "smokescreen"], only_running=False)
-if aux_services:
+if aux_services := list_supervisor_processes(
+    ["go-camo", "smokescreen"], only_running=False
+):
     subprocess.check_call(["supervisorctl", "start", *aux_services])
 
 
@@ -181,7 +177,7 @@ if (action == "start" or args.less_graceful) and len(workers) > 0:
     subprocess.check_call(["supervisorctl", "start", *workers])
 
 logging.info("Done!")
-print(OKGREEN + f"Zulip {action}ed successfully!" + ENDC)
+print(f"{OKGREEN}Zulip {action}ed successfully!{ENDC}")
 
 if change_symlink and "PWD" in os.environ:
     for symlink in [last_symlink, current_symlink]:

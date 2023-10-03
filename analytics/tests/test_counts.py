@@ -207,9 +207,7 @@ class AnalyticsTestCase(ZulipTestCase):
             "value": 1,
         }
         for values in arg_values:
-            kwargs: Dict[str, Any] = {}
-            for i in range(len(values)):
-                kwargs[arg_keys[i]] = values[i]
+            kwargs: Dict[str, Any] = {arg_keys[i]: values[i] for i in range(len(values))}
             for key, value in defaults.items():
                 kwargs[key] = kwargs.get(key, value)
             if table is not InstallationCount:

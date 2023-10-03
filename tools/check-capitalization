@@ -45,23 +45,23 @@ if __name__ == "__main__":
         backend_errors, backend_ignored, banned_errors_back = backend
 
     if frontend_errors:
-        print(WARNING + "Strings not properly capitalized in frontend:" + ENDC)
+        print(f"{WARNING}Strings not properly capitalized in frontend:{ENDC}")
         print("\n".join(frontend_errors))
 
     if backend_errors:
-        print(WARNING + "Strings not properly capitalized in backend:" + ENDC)
+        print(f"{WARNING}Strings not properly capitalized in backend:{ENDC}")
         print("\n".join(backend_errors))
 
     if banned_errors_front:
-        print(WARNING + "Found banned words in frontend strings" + ENDC)
+        print(f"{WARNING}Found banned words in frontend strings{ENDC}")
         print("\n".join(banned_errors_front))
 
     if banned_errors_back:
-        print(WARNING + "Found banned words in backend strings" + ENDC)
+        print(f"{WARNING}Found banned words in backend strings{ENDC}")
         print("\n".join(banned_errors_back))
 
     if args.show_ignored:
-        print(WARNING + "Strings which were ignored: " + ENDC)
+        print(f"{WARNING}Strings which were ignored: {ENDC}")
         print("\n".join(frontend_ignored + backend_ignored))
 
     if frontend_errors or backend_errors or banned_errors_back or banned_errors_front:
@@ -70,10 +70,12 @@ if __name__ == "__main__":
             "https://zulip.readthedocs.io/en/latest/translating/translating.html#capitalization"
         )
         print()
-        print(WARNING + "You can usually find strings using `git grep 'String to find'`" + ENDC)
-        print(WARNING + "See also " + docs_url + ENDC)
+        print(
+            f"{WARNING}You can usually find strings using `git grep 'String to find'`{ENDC}"
+        )
+        print(f"{WARNING}See also {docs_url}{ENDC}")
         print()
-        print(FAIL + "Failed!" + ENDC)
+        print(f"{FAIL}Failed!{ENDC}")
         sys.exit(1)
     else:
         sys.exit(0)

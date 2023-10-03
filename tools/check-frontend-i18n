@@ -17,11 +17,7 @@ from scripts.lib.zulip_tools import ENDC, FAIL, WARNING
 
 
 def find_handlebars(translatable_strings: List[str]) -> List[str]:
-    errored = []
-    for string in translatable_strings:
-        if "{{" in string:
-            errored.append(string)
-    return errored
+    return [string for string in translatable_strings if "{{" in string]
 
 
 if __name__ == "__main__":
@@ -41,7 +37,7 @@ if __name__ == "__main__":
     if not found:
         sys.exit(0)
 
-    print(WARNING + "Translation strings contain handlebars:" + ENDC)
+    print(f"{WARNING}Translation strings contain handlebars:{ENDC}")
     print("\n".join(found))
 
     print(
@@ -50,5 +46,5 @@ if __name__ == "__main__":
         "on how you can insert variables in the frontend translatable "
         "strings." + ENDC
     )
-    print(FAIL + "Failed!" + ENDC)
+    print(f"{FAIL}Failed!{ENDC}")
     sys.exit(1)

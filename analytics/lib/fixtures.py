@@ -43,14 +43,14 @@ def generate_time_series_data(
             for hour in range(8):
                 seasonality[24 * day + hour] = business_hours_base
         holidays = []
-        for i in range(days):
+        for _ in range(days):
             holidays.extend([random() < holiday_rate] * 24)
     elif frequency == CountStat.DAY:
         length = days
         seasonality = [8 * business_hours_base + 16 * non_business_hours_base] * 5 + [
             24 * non_business_hours_base
         ] * 2
-        holidays = [random() < holiday_rate for i in range(days)]
+        holidays = [random() < holiday_rate for _ in range(days)]
     else:
         raise AssertionError(f"Unknown frequency: {frequency}")
     if length < 2:
@@ -64,11 +64,11 @@ def generate_time_series_data(
 
     seed(random_seed)
     noise_scalars = [gauss(0, 1)]
-    for i in range(1, length):
-        noise_scalars.append(
-            noise_scalars[-1] * autocorrelation + gauss(0, 1) * (1 - autocorrelation)
-        )
-
+    noise_scalars.extend(
+        noise_scalars[-1] * autocorrelation
+        + gauss(0, 1) * (1 - autocorrelation)
+        for _ in range(1, length)
+    )
     values = [
         0 if holiday else int(v + sqrt(v) * noise_scalar * spikiness)
         for v, noise_scalar, holiday in zip(values_no_noise, noise_scalars, holidays)

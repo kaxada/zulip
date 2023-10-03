@@ -21,7 +21,7 @@ from scripts.lib.zulip_tools import (
 )
 
 if len(sys.argv) != 2:
-    print(FAIL + f"Usage: {sys.argv[0]} <tarball>" + ENDC)
+    print(f"{FAIL}Usage: {sys.argv[0]} <tarball>{ENDC}")
     sys.exit(1)
 
 tarball_path = sys.argv[1]
@@ -35,8 +35,7 @@ new_version = get_deployment_version(extract_path)
 current_version = version.ZULIP_VERSION
 if is_invalid_upgrade(current_version, new_version):
     print(
-        FAIL + "Your current version is very old. Please first upgrade to version "
-        "1.4.3 and then upgrade to {}.".format(new_version) + ENDC
+        f"{FAIL}Your current version is very old. Please first upgrade to version 1.4.3 and then upgrade to {new_version}.{ENDC}"
     )
     shutil.rmtree(extract_path)
     sys.exit(1)

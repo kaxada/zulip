@@ -111,9 +111,7 @@ def build_userprofile(
 
 
 def get_user_email(user_data: ZerverFieldsT, domain_name: str) -> str:
-    # TODO Get user email from github
-    email = "{}@users.noreply.github.com".format(user_data["username"])
-    return email
+    return f'{user_data["username"]}@users.noreply.github.com'
 
 
 def build_stream_map(
@@ -127,12 +125,16 @@ def build_stream_map(
     """
     logging.info("######### IMPORTING STREAM STARTED #########\n")
     stream_id = 0
-    stream: List[ZerverFieldsT] = []
+    stream: List[ZerverFieldsT] = [
+        build_stream(
+            timestamp,
+            realm_id,
+            "from gitter",
+            "Imported from Gitter",
+            stream_id,
+        )
+    ]
 
-    # Default stream when no "room" field is present
-    stream.append(
-        build_stream(timestamp, realm_id, "from gitter", "Imported from Gitter", stream_id)
-    )
     defaultstream = build_defaultstream(realm_id=realm_id, stream_id=stream_id, defaultstream_id=0)
     stream_id += 1
 
@@ -171,7 +173,7 @@ def build_recipient_and_subscription(
     # Initial recipients correspond to initial streams
     # We enumerate all streams, and build a recipient for each
     # Hence 'recipient_id'=n corresponds to 'stream_id'=n
-    for stream in zerver_stream:
+    for _ in zerver_stream:
         zerver_recipient.append(build_recipient(recipient_id, recipient_id, Recipient.STREAM))
         recipient_id += 1
 
@@ -217,7 +219,6 @@ def convert_gitter_workspace_messages(
     dump_file_id = 1
 
     while True:
-        message_json = {}
         zerver_message = []
         zerver_usermessage: List[ZerverFieldsT] = []
         message_data = gitter_data[low_index:upper_index]
@@ -254,8 +255,10 @@ def convert_gitter_workspace_messages(
 
             message_id += 1
 
-        message_json["zerver_message"] = zerver_message
-        message_json["zerver_usermessage"] = zerver_usermessage
+        message_json = {
+            "zerver_message": zerver_message,
+            "zerver_usermessage": zerver_usermessage,
+        }
         message_filename = os.path.join(output_dir, f"messages-{dump_file_id:06}.json")
         logging.info("Writing messages to %s\n", message_filename)
         write_data_to_file(os.path.join(message_filename), message_json)
@@ -274,7 +277,7 @@ def get_usermentions(
     if "mentions" in message:
         for mention in message["mentions"]:
             if mention.get("userId") in user_map:
-                gitter_mention = "@{}".format(mention["screenName"])
+                gitter_mention = f'@{mention["screenName"]}'
                 if mention["screenName"] not in user_short_name_to_full_name:
                     logging.info(
                         "Mentioned user %s never sent any messages, so has no full name data",
@@ -312,11 +315,10 @@ def do_convert_data(gitter_data_file: str, output_dir: str, threads: int = 6) ->
         zerver_subscription=realm["zerver_subscription"],
     )
 
-    # For user mentions
-    user_short_name_to_full_name = {}
-    for userprofile in realm["zerver_userprofile"]:
-        user_short_name_to_full_name[userprofile["short_name"]] = userprofile["full_name"]
-
+    user_short_name_to_full_name = {
+        userprofile["short_name"]: userprofile["full_name"]
+        for userprofile in realm["zerver_userprofile"]
+    }
     convert_gitter_workspace_messages(
         gitter_data, output_dir, subscriber_map, user_map, stream_map, user_short_name_to_full_name
     )
@@ -339,7 +341,9 @@ def do_convert_data(gitter_data_file: str, output_dir: str, threads: int = 6) ->
     # IO attachments records
     create_converted_data_files(attachment, output_dir, "/attachment.json")
 
-    subprocess.check_call(["tar", "-czf", output_dir + ".tar.gz", output_dir, "-P"])
+    subprocess.check_call(
+        ["tar", "-czf", f"{output_dir}.tar.gz", output_dir, "-P"]
+    )
 
     logging.info("######### DATA CONVERSION FINISHED #########\n")
     logging.info("Zulip data dump created at %s", output_dir)

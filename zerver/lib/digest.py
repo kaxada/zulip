@@ -83,10 +83,7 @@ class DigestTopic:
 
 
 def should_process_digest(realm_str: str) -> bool:
-    if realm_str in settings.SYSTEM_ONLY_REALMS:
-        # Don't try to send emails to system-only realms
-        return False
-    return True
+    return realm_str not in settings.SYSTEM_ONLY_REALMS
 
 
 # Changes to this should also be reflected in
@@ -144,9 +141,7 @@ def _enqueue_emails_for_realm(realm: Realm, cutoff: datetime.datetime) -> None:
         .distinct()
     )
 
-    user_ids = list(realm_user_ids - active_user_ids)
-    user_ids.sort()
-
+    user_ids = sorted(realm_user_ids - active_user_ids)
     # We process batches of 30.  We want a big enough batch
     # to amortize work, but not so big that a single item
     # from the queue takes too long to process.
@@ -194,9 +189,7 @@ def get_recent_topics(
 
         digest_topic_map[topic_key].add_message(message)
 
-    topics = list(digest_topic_map.values())
-
-    return topics
+    return list(digest_topic_map.values())
 
 
 def get_hot_topics(

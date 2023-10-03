@@ -58,9 +58,7 @@ def run_sql_query(query: str) -> List[List[str]]:
     ]
     try:
         output = subprocess.check_output(command, stderr=subprocess.STDOUT, text=True).strip()
-        if not output:
-            return []
-        return [x.split("\0") for x in output.split("\n")]
+        return [] if not output else [x.split("\0") for x in output.split("\n")]
     except subprocess.CalledProcessError as e:
         report("CRITICAL", f"psql failed: {str(e)}: {e.output}")
         exit(MAXSTATE)
@@ -69,7 +67,7 @@ def run_sql_query(query: str) -> List[List[str]]:
 def loc_to_abs_offset(loc_str: str) -> int:
     m = re.match(r"^\s*([0-9a-fA-F]+)/([0-9a-fA-F]+)\s*$", loc_str)
     if not m:
-        raise ValueError("Unknown xlog location format: " + loc_str)
+        raise ValueError(f"Unknown xlog location format: {loc_str}")
     (xlog_file, file_offset) = (m.group(1), m.group(2))
 
     # From PostgreSQL 9.2's pg_xlog_location_diff:
@@ -128,8 +126,7 @@ else:
             report("CRITICAL", f"replica {client_addr} is in state {state}, not streaming")
 
         sent_offset = loc_to_abs_offset(sent_lsn)
-        lag: Dict[str, int] = {}
-        lag["write"] = sent_offset - loc_to_abs_offset(write_lsn)
+        lag: Dict[str, int] = {"write": sent_offset - loc_to_abs_offset(write_lsn)}
         lag["flush"] = sent_offset - loc_to_abs_offset(flush_lsn)
         lag["replay"] = sent_offset - loc_to_abs_offset(replay_lsn)
         for lag_type in ("write", "flush", "replay"):

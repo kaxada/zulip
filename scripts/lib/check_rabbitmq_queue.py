@@ -55,7 +55,7 @@ def analyze_queue_stats(
     queue_name: str, stats: Dict[str, Any], queue_count_rabbitmqctl: int
 ) -> Dict[str, Any]:
     now = int(time.time())
-    if stats == {}:
+    if not stats:
         return dict(status=UNKNOWN, name=queue_name, message="invalid or no stats data")
 
     if now - stats["update_time"] > 180 and queue_count_rabbitmqctl > 10:
@@ -75,9 +75,7 @@ def analyze_queue_stats(
         return dict(
             status=CRITICAL,
             name=queue_name,
-            message="queue appears to be stuck, last update {}, queue size {}".format(
-                stats["update_time"], queue_count_rabbitmqctl
-            ),
+            message=f'queue appears to be stuck, last update {stats["update_time"]}, queue size {queue_count_rabbitmqctl}',
         )
 
     current_size = queue_count_rabbitmqctl
@@ -129,7 +127,7 @@ def check_other_queues(queue_counts_dict: Dict[str, int]) -> List[Dict[str, Any]
 
 def check_rabbitmq_queues() -> None:
     pattern = re.compile(r"(\w+)\t(\d+)\t(\d+)")
-    if "USER" in os.environ and not os.environ["USER"] in ["root", "rabbitmq"]:
+    if "USER" in os.environ and os.environ["USER"] not in ["root", "rabbitmq"]:
         print("This script must be run as the root or rabbitmq user")
 
     list_queues_output = subprocess.check_output(
@@ -140,8 +138,7 @@ def check_rabbitmq_queues() -> None:
     queues_with_consumers = []
     for line in list_queues_output.split("\n"):
         line = line.strip()
-        m = pattern.match(line)
-        if m:
+        if m := pattern.match(line):
             queue = m.group(1)
             count = int(m.group(2))
             consumers = int(m.group(3))
@@ -156,7 +153,7 @@ def check_rabbitmq_queues() -> None:
     queue_stats: Dict[str, Dict[str, Any]] = {}
     queues_to_check = set(normal_queues).intersection(set(queues_with_consumers))
     for queue in queues_to_check:
-        fn = queue + ".stats"
+        fn = f"{queue}.stats"
         file_path = os.path.join(queue_stats_dir, fn)
         if not os.path.exists(file_path):
             queue_stats[queue] = {}
@@ -168,10 +165,12 @@ def check_rabbitmq_queues() -> None:
             except json.decoder.JSONDecodeError:
                 queue_stats[queue] = {}
 
-    results = []
-    for queue_name, stats in queue_stats.items():
-        results.append(analyze_queue_stats(queue_name, stats, queue_counts_rabbitmqctl[queue_name]))
-
+    results = [
+        analyze_queue_stats(
+            queue_name, stats, queue_counts_rabbitmqctl[queue_name]
+        )
+        for queue_name, stats in queue_stats.items()
+    ]
     results.extend(check_other_queues(queue_counts_rabbitmqctl))
 
     status = max(result["status"] for result in results)

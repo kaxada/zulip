@@ -42,9 +42,7 @@ def is_outdated_server(user_profile: Optional[UserProfile]) -> bool:
         # Administrators get warned at the deadline; all users 30 days later.
         deadline = deadline + datetime.timedelta(days=30)
 
-    if timezone_now() > deadline:
-        return True
-    return False
+    return timezone_now() > deadline
 
 
 def pop_numerals(ver: str) -> Tuple[List[int], str]:
@@ -93,9 +91,7 @@ def version_lt(ver1: str, ver2: str) -> Optional[bool]:
         return None
 
     # Trailing text we can only compare for equality.
-    if rest1 == rest2:
-        return False
-    return None
+    return False if rest1 == rest2 else None
 
 
 def find_mobile_os(user_agent: str) -> Optional[str]:

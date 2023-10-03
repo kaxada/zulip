@@ -57,10 +57,7 @@ class CountStat:
         if frequency not in self.FREQUENCIES:
             raise AssertionError(f"Unknown frequency: {frequency}")
         self.frequency = frequency
-        if interval is not None:
-            self.interval = interval
-        else:
-            self.interval = self.time_increment
+        self.interval = interval if interval is not None else self.time_increment
 
     def __str__(self) -> str:
         return f"<CountStat: {self.property}>"

@@ -172,7 +172,7 @@ for device in macs.values():
             ]
         )
 
-    for throwaway in range(2):
+    for _ in range(2):
         # Don't freak out if this doesn't work.
         subprocess.call(["/sbin/ip", "route", "del", "10.0.0.0/8"])
 

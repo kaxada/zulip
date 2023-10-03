@@ -61,8 +61,11 @@ def process_users(
     realm_owners: List[int] = []
     bots: List[int] = []
 
-    for rc_user_id in user_id_to_user_map:
-        user_dict = user_id_to_user_map[rc_user_id]
+    # TODO: Change this to use actual exported avatar
+    avatar_source = "G"
+    timezone = "UTC"
+
+    for rc_user_id, user_dict in user_id_to_user_map.items():
         is_mirror_dummy = False
         is_bot = False
         is_active = True
@@ -82,22 +85,16 @@ def process_users(
             if not user_dict.get("emails"):
                 user_dict["emails"] = [
                     {
-                        "address": "{}-{}@{}".format(
-                            user_dict["username"], user_dict["type"], domain_name
-                        )
+                        "address": f'{user_dict["username"]}-{user_dict["type"]}@{domain_name}'
                     }
                 ]
 
-        # TODO: Change this to use actual exported avatar
-        avatar_source = "G"
         full_name = user_dict["name"]
         id = user_id_mapper.get(rc_user_id)
         delivery_email = user_dict["emails"][0]["address"]
         email = user_dict["emails"][0]["address"]
         short_name = user_dict["username"]
         date_joined = float(user_dict["createdAt"].timestamp())
-        timezone = "UTC"
-
         role = UserProfile.ROLE_MEMBER
         if "admin" in user_dict["roles"]:
             role = UserProfile.ROLE_REALM_OWNER
@@ -149,9 +146,7 @@ def convert_channel_data(
 ) -> List[ZerverFieldsT]:
     streams = []
 
-    for rc_room_id in room_id_to_room_map:
-        channel_dict = room_id_to_room_map[rc_room_id]
-
+    for rc_room_id, channel_dict in room_id_to_room_map.items():
         date_created = float(channel_dict["ts"].timestamp())
         stream_id = stream_id_mapper.get(rc_room_id)
         invite_only = channel_dict["t"] == "p"
@@ -160,9 +155,7 @@ def convert_channel_data(
 
         stream_desc = channel_dict.get("description", "")
         if channel_dict.get("teamId") and not channel_dict.get("teamMain"):
-            stream_desc = "[Team {} channel]. {}".format(
-                team_id_to_team_map[channel_dict["teamId"]]["name"], stream_desc
-            )
+            stream_desc = f'[Team {team_id_to_team_map[channel_dict["teamId"]]["name"]} channel]. {stream_desc}'
 
         # If the channel is read-only, then only admins and moderators
         # should be allowed to post in the converted Zulip stream.
@@ -197,9 +190,7 @@ def convert_stream_subscription_data(
 ) -> None:
     stream_members_map: Dict[int, Set[int]] = {}
 
-    for rc_user_id in user_id_to_user_map:
-        user_dict = user_id_to_user_map[rc_user_id]
-
+    for rc_user_id, user_dict in user_id_to_user_map.items():
         if not user_dict.get("__rooms"):
             continue
 
@@ -232,15 +223,15 @@ def convert_huddle_data(
 ) -> List[ZerverFieldsT]:
     zerver_huddle: List[ZerverFieldsT] = []
 
-    for rc_huddle_id in huddle_id_to_huddle_map:
+    for rc_huddle_id, huddle_dict in huddle_id_to_huddle_map.items():
         huddle_id = huddle_id_mapper.get(rc_huddle_id)
         huddle = build_huddle(huddle_id)
         zerver_huddle.append(huddle)
 
-        huddle_dict = huddle_id_to_huddle_map[rc_huddle_id]
-        huddle_user_ids = set()
-        for rc_user_id in huddle_dict["uids"]:
-            huddle_user_ids.add(user_id_mapper.get(rc_user_id))
+        huddle_user_ids = {
+            user_id_mapper.get(rc_user_id)
+            for rc_user_id in huddle_dict["uids"]
+        }
         subscriber_handler.set_info(
             users=huddle_user_ids,
             huddle_id=huddle_id,
@@ -260,10 +251,10 @@ def build_custom_emoji(
     zerver_realmemoji: List[ZerverFieldsT] = []
     emoji_records: List[ZerverFieldsT] = []
 
-    # Map emoji file_id to emoji file data
-    emoji_file_data = {}
-    for emoji_file in custom_emoji_data["file"]:
-        emoji_file_data[emoji_file["_id"]] = {"filename": emoji_file["filename"], "chunks": []}
+    emoji_file_data = {
+        emoji_file["_id"]: {"filename": emoji_file["filename"], "chunks": []}
+        for emoji_file in custom_emoji_data["file"]
+    }
     for emoji_chunk in custom_emoji_data["chunk"]:
         emoji_file_data[emoji_chunk["files_id"]]["chunks"].append(emoji_chunk["data"])
 
@@ -320,10 +311,7 @@ def build_reactions(
     message_id: int,
     zerver_realmemoji: List[ZerverFieldsT],
 ) -> None:
-    realmemoji = {}
-    for emoji in zerver_realmemoji:
-        realmemoji[emoji["name"]] = emoji["id"]
-
+    realmemoji = {emoji["name"]: emoji["id"] for emoji in zerver_realmemoji}
     # For the Unicode emoji codes, we use equivalent of
     # function 'emoji_name_to_emoji_code' in 'zerver/lib/emoji' here
     for reaction in reactions:
@@ -369,10 +357,7 @@ def process_message_attachment(
     file_name = upload["name"]
     file_ext = f'.{upload["type"].split("/")[-1]}'
 
-    has_image = False
-    if file_ext.lower() in IMAGE_EXTENSIONS:
-        has_image = True
-
+    has_image = file_ext.lower() in IMAGE_EXTENSIONS
     s3_path = "/".join(
         [
             str(realm_id),
@@ -541,7 +526,7 @@ def process_raw_message_batch(
         zerver_usermessage=zerver_usermessage,
     )
 
-    dump_file_id = NEXT_ID("dump_file_id" + str(realm_id))
+    dump_file_id = NEXT_ID(f"dump_file_id{realm_id}")
     message_file = f"/messages-{dump_file_id:06}.json"
     create_converted_data_files(message_json, output_dir, message_file)
 
@@ -625,7 +610,7 @@ def process_messages(
             content=content,
             date_sent=int(message["ts"].timestamp()),
             reactions=reactions,
-            has_link=True if message.get("urls") else False,
+            has_link=bool(message.get("urls")),
         )
 
         # Add recipient_id to message_dict
@@ -759,11 +744,10 @@ def process_messages(
 def map_upload_id_to_upload_data(
     upload_data: Dict[str, List[Dict[str, Any]]],
 ) -> Dict[str, Dict[str, Any]]:
-    upload_id_to_upload_data_map: Dict[str, Dict[str, Any]] = {}
-
-    for upload in upload_data["upload"]:
-        upload_id_to_upload_data_map[upload["_id"]] = {**upload, "chunk": []}
-
+    upload_id_to_upload_data_map: Dict[str, Dict[str, Any]] = {
+        upload["_id"]: {**upload, "chunk": []}
+        for upload in upload_data["upload"]
+    }
     for chunk in upload_data["chunk"]:
         upload_id_to_upload_data_map[chunk["files_id"]]["chunk"].append(chunk["data"])
 
@@ -845,29 +829,27 @@ def categorize_channels_and_map_with_id(
 
 
 def map_username_to_user_id(user_id_to_user_map: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
-    username_to_user_id_map: Dict[str, str] = {}
-    for user_id, user_dict in user_id_to_user_map.items():
-        username_to_user_id_map[user_dict["username"]] = user_id
+    username_to_user_id_map: Dict[str, str] = {
+        user_dict["username"]: user_id
+        for user_id, user_dict in user_id_to_user_map.items()
+    }
     return username_to_user_id_map
 
 
 def map_user_id_to_user(user_data_list: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    user_id_to_user_map = {}
-    for user in user_data_list:
-        user_id_to_user_map[user["_id"]] = user
-    return user_id_to_user_map
+    return {user["_id"]: user for user in user_data_list}
 
 
 def rocketchat_data_to_dict(rocketchat_data_dir: str) -> Dict[str, Any]:
-    rocketchat_data: Dict[str, Any] = {}
-    rocketchat_data["instance"] = []
-    rocketchat_data["user"] = []
-    rocketchat_data["avatar"] = {"avatar": [], "file": [], "chunk": []}
-    rocketchat_data["room"] = []
-    rocketchat_data["message"] = []
-    rocketchat_data["custom_emoji"] = {"emoji": [], "file": [], "chunk": []}
-    rocketchat_data["upload"] = {"upload": [], "file": [], "chunk": []}
-
+    rocketchat_data: Dict[str, Any] = {
+        "instance": [],
+        "user": [],
+        "avatar": {"avatar": [], "file": [], "chunk": []},
+        "room": [],
+        "message": [],
+        "custom_emoji": {"emoji": [], "file": [], "chunk": []},
+        "upload": {"upload": [], "file": [], "chunk": []},
+    }
     # Get instance
     with open(os.path.join(rocketchat_data_dir, "instances.bson"), "rb") as fcache:
         rocketchat_data["instance"] = bson.decode_all(fcache.read())
@@ -1137,5 +1119,7 @@ def do_convert_data(rocketchat_data_dir: str, output_dir: str) -> None:
     create_converted_data_files(uploads_list, output_dir, "/uploads/records.json")
 
     logging.info("Start making tarball")
-    subprocess.check_call(["tar", "-czf", output_dir + ".tar.gz", output_dir, "-P"])
+    subprocess.check_call(
+        ["tar", "-czf", f"{output_dir}.tar.gz", output_dir, "-P"]
+    )
     logging.info("Done making tarball")

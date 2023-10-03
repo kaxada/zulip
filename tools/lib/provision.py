@@ -35,7 +35,7 @@ VAR_DIR_PATH = os.path.join(ZULIP_PATH, "var")
 CONTINUOUS_INTEGRATION = "GITHUB_ACTIONS" in os.environ
 
 if not os.path.exists(os.path.join(ZULIP_PATH, ".git")):
-    print(FAIL + "Error: No Zulip Git repository present!" + ENDC)
+    print(f"{FAIL}Error: No Zulip Git repository present!{ENDC}")
     print("To set up the Zulip development environment, you should clone the code")
     print("from GitHub, rather than using a Zulip production release tarball.")
     sys.exit(1)
@@ -48,9 +48,7 @@ with open("/proc/meminfo") as meminfo:
 ram_gb = float(ram_size) / 1024.0 / 1024.0
 if ram_gb < 1.5:
     print(
-        "You have insufficient RAM ({} GB) to run the Zulip development environment.".format(
-            round(ram_gb, 2)
-        )
+        f"You have insufficient RAM ({round(ram_gb, 2)} GB) to run the Zulip development environment."
     )
     print("We recommend at least 2 GB of RAM, and require at least 1.5 GB.")
     sys.exit(1)
@@ -67,8 +65,7 @@ try:
     os.remove(os.path.join(VAR_DIR_PATH, "zulip-test-symlink"))
 except OSError:
     print(
-        FAIL + "Error: Unable to create symlinks."
-        "Make sure you have permission to create symbolic links." + ENDC
+        f"{FAIL}Error: Unable to create symlinks.Make sure you have permission to create symbolic links.{ENDC}"
     )
     print("See this page for more information:")
     print(
@@ -77,8 +74,8 @@ except OSError:
     sys.exit(1)
 
 distro_info = parse_os_release()
-vendor = distro_info["ID"]
 os_version = distro_info["VERSION_ID"]
+vendor = distro_info["ID"]
 if vendor == "debian" and os_version == "10":  # buster
     POSTGRESQL_VERSION = "11"
 elif vendor == "debian" and os_version == "11":  # bullseye
@@ -280,7 +277,7 @@ def install_apt_deps(deps_to_install: List[str]) -> None:
 
 
 def install_yum_deps(deps_to_install: List[str]) -> None:
-    print(WARNING + "RedHat support is still experimental.")
+    print(f"{WARNING}RedHat support is still experimental.")
     run_as_root(["./scripts/lib/setup-yum-repo"])
 
     # Hack specific to unregistered RHEL system.  The moreutils
@@ -378,8 +375,8 @@ def main(options: argparse.Namespace) -> "NoReturn":
             sha_sum.update(fb.read())
 
     new_apt_dependencies_hash = sha_sum.hexdigest()
-    last_apt_dependencies_hash = None
     apt_hash_file_path = os.path.join(UUID_VAR_PATH, "apt_dependencies_hash")
+    last_apt_dependencies_hash = None
     with open(apt_hash_file_path, "a+") as hash_file:
         hash_file.seek(0)
         last_apt_dependencies_hash = hash_file.read()
@@ -390,7 +387,7 @@ def main(options: argparse.Namespace) -> "NoReturn":
         except subprocess.CalledProcessError:
             try:
                 # Might be a failure due to network connection issues. Retrying...
-                print(WARNING + "Installing system dependencies failed; retrying..." + ENDC)
+                print(f"{WARNING}Installing system dependencies failed; retrying...{ENDC}")
                 install_system_deps()
             except BaseException as e:
                 # Suppress exception chaining
@@ -437,14 +434,12 @@ def main(options: argparse.Namespace) -> "NoReturn":
     try:
         setup_node_modules(prefer_offline=True)
     except subprocess.CalledProcessError:
-        print(WARNING + "`yarn install` failed; retrying..." + ENDC)
+        print(f"{WARNING}`yarn install` failed; retrying...{ENDC}")
         try:
             setup_node_modules()
         except subprocess.CalledProcessError:
             print(
-                FAIL
-                + "`yarn install` is failing; check your network connection (and proxy settings)."
-                + ENDC
+                f"{FAIL}`yarn install` is failing; check your network connection (and proxy settings).{ENDC}"
             )
             sys.exit(1)
 

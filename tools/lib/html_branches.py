@@ -11,11 +11,7 @@ class TagInfo:
         self.classes = classes
         self.ids = ids
         self.token = token
-        self.words = [
-            self.tag,
-            *("." + s for s in classes),
-            *("#" + s for s in ids),
-        ]
+        self.words = [self.tag, *(f".{s}" for s in classes), *(f"#{s}" for s in ids)]
 
     def text(self) -> str:
         s = self.tag
@@ -40,8 +36,7 @@ def get_tag_info(token: Token) -> TagInfo:
     ]
 
     for lst, regex in searches:
-        m = re.search(regex, s)
-        if m:
+        if m := re.search(regex, s):
             for g in m.groups():
                 lst += split_for_id_and_class(g)
 
@@ -60,15 +55,15 @@ def split_for_id_and_class(element: str) -> List[str]:
     for ch in element:
         if ch == "{":
             outside_braces = False
-        if ch == "}":
+        elif ch == "}":
             outside_braces = True
         if ch == " " and outside_braces:
-            if not s == "":
+            if s != "":
                 lst.append(s)
             s = ""
         else:
             s += ch
-    if not s == "":
+    if s != "":
         lst.append(s)
 
     return lst
@@ -94,6 +89,6 @@ def build_id_dict(templates: List[str]) -> (Dict[str, List[str]]):
             info = get_tag_info(tag)
 
             for ids in info.ids:
-                template_id_dict[ids].append("Line " + str(info.token.line) + ":" + fn)
+                template_id_dict[ids].append(f"Line {str(info.token.line)}:{fn}")
 
     return template_id_dict

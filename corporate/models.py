@@ -74,13 +74,14 @@ class Event(models.Model):
     handler_error = models.JSONField(default=None, null=True)
 
     def get_event_handler_details_as_dict(self) -> Dict[str, Any]:
-        details_dict = {}
-        details_dict["status"] = {
-            Event.RECEIVED: "not_started",
-            Event.EVENT_HANDLER_STARTED: "started",
-            Event.EVENT_HANDLER_FAILED: "failed",
-            Event.EVENT_HANDLER_SUCCEEDED: "succeeded",
-        }[self.status]
+        details_dict = {
+            "status": {
+                Event.RECEIVED: "not_started",
+                Event.EVENT_HANDLER_STARTED: "started",
+                Event.EVENT_HANDLER_FAILED: "failed",
+                Event.EVENT_HANDLER_SUCCEEDED: "succeeded",
+            }[self.status]
+        }
         if self.handler_error:
             details_dict["error"] = self.handler_error
         return details_dict
@@ -124,9 +125,8 @@ class Session(models.Model):
         }[self.type]
 
     def to_dict(self) -> Dict[str, Any]:
-        session_dict: Dict[str, Any] = {}
+        session_dict: Dict[str, Any] = {"status": self.get_status_as_string()}
 
-        session_dict["status"] = self.get_status_as_string()
         session_dict["type"] = self.get_type_as_string()
         if self.payment_intent:
             session_dict["stripe_payment_intent_id"] = self.payment_intent.stripe_payment_intent_id
@@ -181,8 +181,7 @@ class PaymentIntent(models.Model):
         return get_last_associated_event_by_type(self, event_type)
 
     def to_dict(self) -> Dict[str, Any]:
-        payment_intent_dict: Dict[str, Any] = {}
-        payment_intent_dict["status"] = self.get_status_as_string()
+        payment_intent_dict: Dict[str, Any] = {"status": self.get_status_as_string()}
         event = self.get_last_associated_event()
         if self.last_payment_error:
             payment_intent_dict["last_payment_error"] = self.last_payment_error
@@ -311,9 +310,7 @@ def get_current_plan_by_customer(customer: Customer) -> Optional[CustomerPlan]:
 
 def get_current_plan_by_realm(realm: Realm) -> Optional[CustomerPlan]:
     customer = get_customer_by_realm(realm)
-    if customer is None:
-        return None
-    return get_current_plan_by_customer(customer)
+    return None if customer is None else get_current_plan_by_customer(customer)
 
 
 class LicenseLedger(models.Model):

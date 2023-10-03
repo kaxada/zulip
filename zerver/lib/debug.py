@@ -28,8 +28,10 @@ def interactive_debug(sig: int, frame: Optional[FrameType]) -> None:
         d.update(frame.f_globals)  # Unless shadowed by global
         d.update(frame.f_locals)
 
-    message = "Signal received : entering python shell.\nTraceback:\n"
-    message += "".join(traceback.format_stack(frame))
+    message = (
+        "Signal received : entering python shell.\nTraceback:\n"
+        + "".join(traceback.format_stack(frame))
+    )
     i = code.InteractiveConsole(d)
     i.interact(message)
 
@@ -46,7 +48,7 @@ def tracemalloc_dump() -> None:
         logger.warning("pid %s: tracemalloc off, nothing to dump", os.getpid())
         return
     # Despite our name for it, `timezone_now` always deals in UTC.
-    basename = "snap.{}.{}".format(os.getpid(), timezone_now().strftime("%F-%T"))
+    basename = f'snap.{os.getpid()}.{timezone_now().strftime("%F-%T")}'
     path = os.path.join(settings.TRACEMALLOC_DUMP_DIR, basename)
     os.makedirs(settings.TRACEMALLOC_DUMP_DIR, exist_ok=True)
 

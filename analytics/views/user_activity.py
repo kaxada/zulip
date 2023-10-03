@@ -13,9 +13,6 @@ from analytics.views.activity_common import (
 from zerver.decorator import require_server_admin
 from zerver.models import UserActivity, UserProfile, get_user_profile_by_id
 
-if settings.BILLING_ENABLED:
-    pass
-
 
 def get_user_activity_records(user_profile: UserProfile) -> List[QuerySet]:
     fields = [
@@ -58,7 +55,7 @@ def raw_user_activity_table(records: List[QuerySet]) -> str:
 def user_activity_summary_table(user_summary: Dict[str, Dict[str, Any]]) -> str:
     rows = []
     for k, v in user_summary.items():
-        if k == "name" or k == "user_profile_id":
+        if k in ["name", "user_profile_id"]:
             continue
         client = k
         count = v["count"]

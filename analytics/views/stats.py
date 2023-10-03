@@ -81,11 +81,11 @@ def render_stats(
 @zulip_login_required
 def stats(request: HttpRequest) -> HttpResponse:
     assert request.user.is_authenticated
-    realm = request.user.realm
     if request.user.is_guest:
         # TODO: Make @zulip_login_required pass the UserProfile so we
         # can use @require_member_or_admin
         raise JsonableError(_("Not allowed for guest users"))
+    realm = request.user.realm
     return render_stats(
         request, "", realm.name or realm.string_id, analytics_ready=is_analytics_ready(realm)
     )
@@ -150,8 +150,8 @@ def get_chart_data_for_remote_realm(
         user_profile=user_profile,
         server=server,
         remote=True,
-        remote_realm_id=int(remote_realm_id),
-        **kwargs,
+        remote_realm_id=remote_realm_id,
+        **kwargs
     )
 
 

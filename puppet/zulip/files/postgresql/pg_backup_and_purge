@@ -33,8 +33,7 @@ if recovery_val == "t":
     # Only run if we're the primary
     sys.exit(0)
 
-is_rhel_based = os.path.exists("/etc/redhat-release")
-if is_rhel_based:
+if is_rhel_based := os.path.exists("/etc/redhat-release"):
     pg_data_paths = glob.glob("/var/lib/pgsql/*/data")
 else:
     pg_data_paths = glob.glob("/var/lib/postgresql/*/main")

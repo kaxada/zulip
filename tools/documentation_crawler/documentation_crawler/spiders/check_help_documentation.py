@@ -28,8 +28,10 @@ class UnusedImagesLinterSpider(BaseDocumentationSpider):
         return is_external or self._has_extension(url)
 
     def closed(self, *args: Any, **kwargs: Any) -> None:
-        unused_images = set(os.listdir(self.images_static_dir)) - self.static_images
-        if unused_images:
+        if (
+            unused_images := set(os.listdir(self.images_static_dir))
+            - self.static_images
+        ):
             exception_message = (
                 "The following images are not used in documentation and can be removed: {}"
             )

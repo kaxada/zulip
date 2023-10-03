@@ -42,8 +42,8 @@ def clear_duplicate_counts(apps: StateApps, schema_editor: DatabaseSchemaEditor)
             count.pop("id__count")
             total_value = count.pop("value__sum")
             duplicate_counts = list(count_table.objects.filter(**count))
-            first_count = duplicate_counts[0]
             if count["property"] in ["invites_sent::day", "active_users_log:is_bot:day"]:
+                first_count = duplicate_counts[0]
                 # For LoggingCountStat objects, the right fix is to combine the totals;
                 # for other CountStat objects, we expect the duplicates to have the same value.
                 # And so all we need to do is delete them.

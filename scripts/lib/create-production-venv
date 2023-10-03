@@ -24,7 +24,7 @@ if "debian" in os_families():
 elif "fedora" in os_families():
     run(["yum", "-y", "install", *VENV_DEPENDENCIES])
 else:
-    print("Unsupported platform: {}".format(distro_info["ID"]))
+    print(f'Unsupported platform: {distro_info["ID"]}')
     sys.exit(1)
 
 # Set the current working directory to the Zulip checkout, so the api/

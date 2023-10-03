@@ -142,10 +142,7 @@ def tokenize(text: str) -> List[Token]:
                 kind = "handlebars_singleton"
             elif looking_at_html_start():
                 s = get_html_tag(text, state.i)
-                if s.endswith("/>"):
-                    end_offset = -2
-                else:
-                    end_offset = -1
+                end_offset = -2 if s.endswith("/>") else -1
                 tag_parts = s[1:end_offset].split()
 
                 if not tag_parts:
@@ -215,10 +212,7 @@ def tokenize(text: str) -> List[Token]:
             elif looking_at(" "):
                 s = get_spaces(text, state.i)
                 tag = ""
-                if not tokens or tokens[-1].kind == "newline":
-                    kind = "indent"
-                else:
-                    kind = "whitespace"
+                kind = "indent" if not tokens or tokens[-1].kind == "newline" else "whitespace"
             elif text[state.i] in "{<":
                 snippet = text[state.i :][:15]
                 raise AssertionError(f"tool cannot parse {snippet}")
@@ -328,10 +322,7 @@ def tag_flavor(token: Token) -> Optional[str]:
         "jinja2_whitespace_stripped_start",
         "jinja2_whitespace_stripped_type2_start",
     }:
-        if is_django_block_tag(tag):
-            return "start"
-        else:
-            return None
+        return "start" if is_django_block_tag(tag) else None
     else:
         raise AssertionError(f"tools programmer neglected to handle {kind} tokens")
 
@@ -576,7 +567,7 @@ def prevent_whitespace_violations(fn: str, tokens: List[Token]) -> None:
                     """
                 )
 
-        if token.kind == "whitespace":
+        elif token.kind == "whitespace":
             if len(token.s) > 1:
                 raise TemplateParserException(
                     f"""
@@ -592,7 +583,7 @@ def prevent_whitespace_violations(fn: str, tokens: List[Token]) -> None:
 
 
 def is_django_block_tag(tag: str) -> bool:
-    return tag in [
+    return tag in {
         "autoescape",
         "block",
         "comment",
@@ -605,7 +596,7 @@ def is_django_block_tag(tag: str) -> bool:
         "trans",
         "raw",
         "with",
-    ]
+    }
 
 
 def get_handlebars_tag(text: str, i: int) -> str:
@@ -614,8 +605,7 @@ def get_handlebars_tag(text: str, i: int) -> str:
         end += 1
     if text[end] != "}" or text[end + 1] != "}":
         raise TokenizationException('Tag missing "}}"', text[i : end + 2])
-    s = text[i : end + 2]
-    return s
+    return text[i : end + 2]
 
 
 def get_spaces(text: str, i: int) -> str:
@@ -650,8 +640,7 @@ def get_django_tag(text: str, i: int, stripped: bool = False) -> str:
         end += 1
     if text[end] != "%" or text[end + 1] != "}":
         raise TokenizationException('Tag missing "%}"', text[i : end + 2])
-    s = text[i : end + 2]
-    return s
+    return text[i : end + 2]
 
 
 def get_html_tag(text: str, i: int) -> str:
@@ -671,8 +660,7 @@ def get_html_tag(text: str, i: int) -> str:
             raise TokenizationException("Unbalanced quotes", text[i : end + 1])
     if end == len(text) or text[end] != ">":
         raise TokenizationException('Tag missing ">"', text[i : end + 1])
-    s = text[i : end + 1]
-    return s
+    return text[i : end + 1]
 
 
 def get_html_comment(text: str, i: int) -> str:

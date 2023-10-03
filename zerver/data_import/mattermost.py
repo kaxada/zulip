@@ -72,9 +72,7 @@ def process_user(
 
     def get_full_name(user_dict: Dict[str, Any]) -> str:
         full_name = "{} {}".format(user_dict["first_name"], user_dict["last_name"])
-        if full_name.strip():
-            return full_name
-        return user_dict["username"]
+        return full_name if full_name.strip() else user_dict["username"]
 
     avatar_source = "G"
     full_name = get_full_name(user_dict)
@@ -120,12 +118,11 @@ def convert_user_data(
     team_name: str,
 ) -> None:
 
-    user_data_list = []
-    for username in user_data_map:
-        user = user_data_map[username]
-        if check_user_in_team(user, team_name) or user["is_mirror_dummy"]:
-            user_data_list.append(user)
-
+    user_data_list = [
+        user
+        for user in user_data_map.values()
+        if check_user_in_team(user, team_name) or user["is_mirror_dummy"]
+    ]
     for raw_item in user_data_list:
         user = process_user(raw_item, realm_id, team_name, user_id_mapper)
         user_handler.add_user(user)
@@ -246,9 +243,9 @@ def convert_huddle_data(
             huddle_name = generate_huddle_name(huddle["members"])
             huddle_id = huddle_id_mapper.get(huddle_name)
             huddle_dict = build_huddle(huddle_id)
-            huddle_user_ids = set()
-            for username in huddle["members"]:
-                huddle_user_ids.add(user_id_mapper.get(username))
+            huddle_user_ids = {
+                user_id_mapper.get(username) for username in huddle["members"]
+            }
             subscriber_handler.set_info(
                 users=huddle_user_ids,
                 huddle_id=huddle_id,
@@ -265,10 +262,10 @@ def build_reactions(
     user_id_mapper: IdMapper,
     zerver_realmemoji: List[ZerverFieldsT],
 ) -> None:
-    realmemoji = {}
-    for realm_emoji in zerver_realmemoji:
-        realmemoji[realm_emoji["name"]] = realm_emoji["id"]
-
+    realmemoji = {
+        realm_emoji["name"]: realm_emoji["id"]
+        for realm_emoji in zerver_realmemoji
+    }
     # For the Unicode emoji codes, we use equivalent of
     # function 'emoji_name_to_emoji_code' in 'zerver/lib/emoji' here
     for mattermost_reaction in reactions:
@@ -523,7 +520,7 @@ def process_raw_message_batch(
         zerver_usermessage=zerver_usermessage,
     )
 
-    dump_file_id = NEXT_ID("dump_file_id" + str(realm_id))
+    dump_file_id = NEXT_ID(f"dump_file_id{realm_id}")
     message_file = f"/messages-{dump_file_id:06}.json"
     create_converted_data_files(message_json, output_dir, message_file)
 
@@ -549,14 +546,7 @@ def process_posts(
 
     post_data_list = []
     for post in post_data:
-        if "team" not in post:
-            # Mattermost doesn't specify a team for private messages
-            # in its export format.  This line of code requires that
-            # we only be importing data from a single team (checked
-            # elsewhere) -- we just assume it's the target team.
-            post_team = team_name
-        else:
-            post_team = post["team"]
+        post_team = team_name if "team" not in post else post["team"]
         if post_team == team_name:
             post_data_list.append(post)
 
@@ -569,11 +559,7 @@ def process_posts(
             content = re.sub("[a-z]", "x", content)
             content = re.sub("[A-Z]", "X", content)
 
-        if "reactions" in post_dict:
-            reactions = post_dict["reactions"] or []
-        else:
-            reactions = []
-
+        reactions = post_dict["reactions"] or [] if "reactions" in post_dict else []
         message_dict = dict(
             sender_id=sender_id,
             content=content,
@@ -800,20 +786,14 @@ def write_emoticon_data(
 def create_username_to_user_mapping(
     user_data_list: List[Dict[str, Any]]
 ) -> Dict[str, Dict[str, Any]]:
-    username_to_user = {}
-    for user in user_data_list:
-        username_to_user[user["username"]] = user
-    return username_to_user
+    return {user["username"]: user for user in user_data_list}
 
 
 def check_user_in_team(user: Dict[str, Any], team_name: str) -> bool:
     if user["teams"] is None:
         # This is null for users not on any team
         return False
-    for team in user["teams"]:
-        if team["name"] == team_name:
-            return True
-    return False
+    return any(team["name"] == team_name for team in user["teams"])
 
 
 def label_mirror_dummy_users(
@@ -841,29 +821,28 @@ def label_mirror_dummy_users(
 
 
 def reset_mirror_dummy_users(username_to_user: Dict[str, Dict[str, Any]]) -> None:
-    for username in username_to_user:
-        user = username_to_user[username]
+    for user in username_to_user.values():
         user["is_mirror_dummy"] = False
 
 
 def mattermost_data_file_to_dict(mattermost_data_file: str) -> Dict[str, Any]:
-    mattermost_data: Dict[str, Any] = {}
-    mattermost_data["version"] = []
-    mattermost_data["team"] = []
-    mattermost_data["channel"] = []
-    mattermost_data["user"] = []
-    mattermost_data["post"] = {"channel_post": [], "direct_post": []}
-    mattermost_data["emoji"] = []
-    mattermost_data["direct_channel"] = []
-
+    mattermost_data: Dict[str, Any] = {
+        "version": [],
+        "team": [],
+        "channel": [],
+        "user": [],
+        "post": {"channel_post": [], "direct_post": []},
+        "emoji": [],
+        "direct_channel": [],
+    }
     with open(mattermost_data_file, "rb") as fp:
         for line in fp:
             row = orjson.loads(line)
             data_type = row["type"]
-            if data_type == "post":
-                mattermost_data["post"]["channel_post"].append(row["post"])
-            elif data_type == "direct_post":
+            if data_type == "direct_post":
                 mattermost_data["post"]["direct_post"].append(row["direct_post"])
+            elif data_type == "post":
+                mattermost_data["post"]["channel_post"].append(row["post"])
             else:
                 mattermost_data[data_type].append(row[data_type])
     return mattermost_data
@@ -1011,5 +990,13 @@ def do_convert_data(mattermost_data_dir: str, output_dir: str, masking_content: 
         create_converted_data_files(attachment, realm_output_dir, "/attachment.json")
 
         logging.info("Start making tarball")
-        subprocess.check_call(["tar", "-czf", realm_output_dir + ".tar.gz", realm_output_dir, "-P"])
+        subprocess.check_call(
+            [
+                "tar",
+                "-czf",
+                f"{realm_output_dir}.tar.gz",
+                realm_output_dir,
+                "-P",
+            ]
+        )
         logging.info("Done making tarball")

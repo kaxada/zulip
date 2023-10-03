@@ -37,13 +37,10 @@ def get_email_gateway_message_string_from_address(address: str) -> str:
         # Accept mails delivered to any Zulip server
         pattern_parts[-1] = settings.EMAIL_GATEWAY_EXTRA_PATTERN_HACK
     match_email_re = re.compile("(.*?)".join(pattern_parts))
-    match = match_email_re.match(address)
-
-    if not match:
+    if match := match_email_re.match(address):
+        return match.group(1)
+    else:
         raise ZulipEmailForwardError("Address not recognized by gateway.")
-    msg_string = match.group(1)
-
-    return msg_string
 
 
 def encode_email_address(stream: Stream, show_sender: bool = False) -> str:
@@ -105,9 +102,5 @@ def decode_email_address(email: str) -> Tuple[str, Dict[str, bool]]:
 
     # There should be one or two parts left:
     # [stream_name, email_token] or just [email_token]
-    if len(remaining_parts) == 1:
-        token = remaining_parts[0]
-    else:
-        token = remaining_parts[1]
-
+    token = remaining_parts[0] if len(remaining_parts) == 1 else remaining_parts[1]
     return token, options
